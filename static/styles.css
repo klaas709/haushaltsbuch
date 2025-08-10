@@ -154,3 +154,23 @@ html, body {
 .table .pos { color: #22c55e; font-weight: 600; }
 .table .neg { color: #ef4444; font-weight: 600; }
 .muted { color: var(--muted); }
+
+.type-toggle {
+  display: flex;
+  gap: 16px;
+  padding: 6px 0;
+}
+.type-toggle label {
+  background: #1e293b;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.type-toggle input[type="radio"] {
+  margin-right: 6px;
+}
+.type-toggle input[type="radio"]:checked + span,
+.type-toggle input[type="radio"]:checked {
+  font-weight: 600;
+  color: var(--accent);
+}
