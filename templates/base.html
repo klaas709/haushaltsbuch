@@ -14,10 +14,13 @@
         {% if current_user.is_authenticated %}
           <span class="nav-user">👤 {{ current_user.name }}</span>
           <a href="{{ url_for('home') }}" class="nav-link">Start</a>
+          {% if current_user.is_admin %}
+           <a href="{{ url_for('admin_users') }}" class="nav-link">Admin</a>
+          {% endif %}
           <a href="{{ url_for('logout') }}" class="nav-link">Abmelden</a>
         {% else %}
-          <a href="{{ url_for('login') }}" class="nav-link">Anmelden</a>
-          <a href="{{ url_for('register') }}" class="nav-link">Registrieren</a>
+         <a href="{{ url_for('login') }}" class="nav-link">Anmelden</a>
+         <a href="{{ url_for('register') }}" class="nav-link">Registrieren</a>
         {% endif %}
       </nav>
     </div>
