@@ -1,7 +1,8 @@
-from flask import Flask, render_template, url_for, request, redirect, flash, jsonify
-from datetime import date
+from flask import Flask, render_template, url_for, request, redirect, flash, jsonify, Response
+from datetime import date, datetime
 from pathlib import Path
 import sqlite3
+import io, csv
 
 # Auth
 from flask_login import (
@@ -265,6 +266,14 @@ def format_euro(value) -> str:
     s = f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"{sign}{s}"
 
+def format_de_number(value: float) -> str:
+    """2 Nachkommastellen, deutsches Dezimal-Komma, keine Tausenderpunkte (gut für Excel-DE)."""
+    try:
+        v = float(value)
+    except Exception:
+        return str(value)
+    return f"{v:.2f}".replace(".", ",")
+
 # =========================
 # Public: Register/Login/Logout
 # =========================
@@ -384,6 +393,46 @@ def admin_demote(user_id: int):
     return redirect(url_for("admin_users"))
 
 # =========================
+# Export (CSV)
+# =========================
+@app.get("/export/csv")
+@login_required
+def export_csv():
+    """
+    Exportiert die aktuell gefilterten Einträge als CSV (DE-Format: Semikolon, Dezimal-Komma).
+    Spalten: Datum;Kategorie;Betrag;Notiz
+    """
+    init_db()
+    where_sql, params, _filters = build_filter_from_args(request.args)
+    entries = fetch_entries(where_sql, params)
+
+    output = io.StringIO(newline="")
+    writer = csv.writer(output, delimiter=';', lineterminator='\n')
+
+    writer.writerow(["Datum", "Kategorie", "Betrag", "Notiz"])
+    for e in entries:
+        writer.writerow([
+            e["date"],
+            e["category"],
+            format_de_number(e["amount"]),  # z. B. 1234,56
+            (e["note"] or "").replace("\n", " ").strip(),
+        ])
+
+    csv_data = output.getvalue()
+    output.close()
+
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"haushaltsbuch_{ts}.csv"
+
+    return Response(
+        csv_data.encode("utf-8-sig"),  # BOM für Excel
+        mimetype="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"'
+        }
+    )
+
+# =========================
 # App-Routen (geschützt)
 # =========================
 @app.get("/")
@@ -393,6 +442,8 @@ def home():
     where_sql, params, filters = build_filter_from_args(request.args)
     entries = fetch_entries(where_sql, params)
     total_income, total_expense, balance = compute_totals(where_sql, params)
+    # Querystring an Template, damit Export-Link Filter übernimmt
+    query_str = request.query_string.decode("utf-8") if request.query_string else ""
     return render_template(
         "index.html",
         app_name="Haushaltsbuch",
@@ -405,6 +456,7 @@ def home():
         filters=filters,
         result_count=len(entries),
         user=current_user,
+        query_str=query_str,
     )
 
 @app.post("/add")
@@ -516,7 +568,15 @@ def delete_entry_route(entry_id: int):
 @app.post("/clear")
 @login_required
 def clear_entries():
+    """
+    Löscht alle Einträge des eingeloggten Benutzers — aber nur nach Passwort-Bestätigung.
+    """
     init_db()
+    pwd = request.form.get("password") or ""
+    user = get_user_by_id(current_user.id)
+    if not user or not check_password_hash(user["password_hash"], pwd):
+        flash("Passwort-Bestätigung fehlgeschlagen.", "error")
+        return redirect(url_for("home"))
     clear_all()
     flash("Alle Einträge gelöscht (nur dein Account).", "success")
     return redirect(url_for("home"))

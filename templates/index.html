@@ -19,6 +19,7 @@
     </p>
   </section>
 
+  <!-- Formular: Neuer Eintrag -->
   <section class="card">
     <h2>Neuer Eintrag</h2>
     <form class="form-grid" action="{{ url_for('add_entry_route') }}" method="post" novalidate>
@@ -60,11 +61,24 @@
       </div>
     </form>
 
+    <!-- Separates Formular: Alle Einträge löschen (mit Passwort-Bestätigung) -->
     <form action="{{ url_for('clear_entries') }}" method="post" style="margin-top:12px;">
-      <button class="btn btn-ghost" type="submit">Alle Einträge löschen</button>
+      <div class="form-grid">
+        <label class="full">
+          <span>Zur Bestätigung bitte dein Passwort eingeben</span>
+          <input type="password" name="password" placeholder="Passwort" required>
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" type="submit"
+                onclick="return confirm('Wirklich ALLE Einträge löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.');">
+          Alle Einträge löschen
+        </button>
+      </div>
     </form>
   </section>
 
+  <!-- Filter -->
   <section class="card">
     <h2>Filter</h2>
     <form class="filters" action="{{ url_for('home') }}" method="get">
@@ -114,11 +128,17 @@
       <div class="actions">
         <button class="btn" type="submit">Filtern</button>
         <a class="btn btn-ghost" href="{{ url_for('home') }}">Zurücksetzen</a>
+
+        <!-- CSV-Export übernimmt aktuelle Filter via query_str -->
+        <a class="btn" href="{{ url_for('export_csv') }}{% if query_str %}?{{ query_str }}{% endif %}">
+          CSV exportieren
+        </a>
       </div>
     </form>
     <p class="muted" style="margin-top:8px;">{{ result_count }} Ergebnis{{ '' if result_count == 1 else 'se' }} gefunden.</p>
   </section>
 
+  <!-- Übersicht -->
   <section class="card">
     <h2>Übersicht</h2>
     <div class="summary">
