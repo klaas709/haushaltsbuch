@@ -9,44 +9,62 @@ from flask_login import (
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
+# =========================
+# Konfiguration
+# =========================
 app = Flask(__name__)
-app.secret_key = "dev-only-change-me"
+app.secret_key = "dev-only-change-me"  # TODO: für Produktion per ENV setzen
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.jinja_env.auto_reload = True
 
 DB_PATH = Path(__file__).with_name("haushaltsbuch.db")
 
-CATEGORIES = ["Lebensmittel", "Miete", "Transport", "Freizeit", "Haushalt", "Einnahme", "Sonstiges"]
+# Diese E-Mail (falls vorhanden) wird automatisch zum Admin gesetzt,
+# sobald der Benutzer existiert.
+ADMIN_EMAIL = "jonas.klaas@t-online.de"
 
-# ---------- Login-Manager ----------
+CATEGORIES = [
+    "Lebensmittel", "Miete", "Transport", "Freizeit",
+    "Haushalt", "Einnahme", "Sonstiges"
+]
+
+# =========================
+# Login-Manager
+# =========================
 login_manager = LoginManager()
-login_manager.login_view = "login"  # unautorisierte Zugriffe leiten zur Login-Seite
+login_manager.login_view = "login"  # unautorisierte Zugriffe -> Login-Seite
 login_manager.login_message = "Bitte melde dich an, um diese Seite zu sehen."
+login_manager.login_message_category = "error"  # nutzt unser Flash-Design
 login_manager.init_app(app)
 
-
 class DBUser(UserMixin):
-    def __init__(self, id, email, name):
+    def __init__(self, id, email, name, is_admin: int = 0):
         self.id = str(id)
         self.email = email
         self.name = name
+        self.is_admin = bool(is_admin)
 
 @login_manager.user_loader
 def load_user(user_id: str):
     u = get_user_by_id(user_id)
     if not u:
         return None
-    return DBUser(u["id"], u["email"], u["name"])
+    return DBUser(u["id"], u["email"], u["name"], u.get("is_admin", 0))
 
-# ---------- DB-Helfer ----------
+# =========================
+# DB-Helfer
+# =========================
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
+    """
+    Tabellen anlegen + Migrationen in richtiger Reihenfolge + optionaler Admin-Bootstrap.
+    """
     with get_conn() as conn:
-        # users
+        # ---- users: Basis-Tabelle ohne is_admin (wird ggf. migriert) ----
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS users (
@@ -58,7 +76,12 @@ def init_db():
             )
             """
         )
-        # entries
+        # MIGRATION: users.is_admin nachrüsten, falls fehlt
+        cols_users = {r["name"] for r in conn.execute("PRAGMA table_info(users)")}
+        if "is_admin" not in cols_users:
+            conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
+
+        # ---- entries: Basis-Tabelle (user_id wird ggf. migriert) ----
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS entries (
@@ -71,25 +94,46 @@ def init_db():
             )
             """
         )
-        # user_id-Spalte ggf. nachrüsten (Migration)
-        cols = {r["name"] for r in conn.execute("PRAGMA table_info(entries)")}
-        if "user_id" not in cols:
+        # MIGRATION: entries.user_id nachrüsten, falls fehlt
+        cols_entries = {r["name"] for r in conn.execute("PRAGMA table_info(entries)")}
+        if "user_id" not in cols_entries:
             conn.execute("ALTER TABLE entries ADD COLUMN user_id INTEGER REFERENCES users(id)")
-        # Index für Performance (optional, idempotent)
+
+        # Indizes (idempotent)
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_user ON entries(user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date)")
 
-# ---------- User-Queries ----------
+    # WICHTIG: Bootstrap NACH allen Migrationen ausführen
+    bootstrap_admin_if_configured()
+
+def bootstrap_admin_if_configured():
+    """Setzt is_admin=1 für ADMIN_EMAIL, wenn dieser User existiert."""
+    if not ADMIN_EMAIL:
+        return
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT id FROM users WHERE email = ?",
+            (ADMIN_EMAIL.lower().strip(),)
+        ).fetchone()
+        if row:
+            conn.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (row["id"],))
+
+# =========================
+# User-Queries
+# =========================
 def create_user(name: str, email: str, password: str):
     with get_conn() as conn:
         conn.execute(
             "INSERT INTO users(name, email, password_hash) VALUES (?, ?, ?)",
-            (name, email, generate_password_hash(password)),
+            (name.strip(), email.lower().strip(), generate_password_hash(password)),
         )
 
 def get_user_by_email(email: str):
     with get_conn() as conn:
-        row = conn.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        row = conn.execute(
+            "SELECT * FROM users WHERE email = ?",
+            (email.lower().strip(),)
+        ).fetchone()
         return dict(row) if row else None
 
 def get_user_by_id(user_id: str):
@@ -97,7 +141,9 @@ def get_user_by_id(user_id: str):
         row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         return dict(row) if row else None
 
-# ---------- Entries-Queries (immer mit user_id) ----------
+# =========================
+# Entries-Queries (mit user_id)
+# =========================
 def insert_entry(d: str, category: str, amount: float, note: str, user_id: int):
     with get_conn() as conn:
         conn.execute(
@@ -105,11 +151,16 @@ def insert_entry(d: str, category: str, amount: float, note: str, user_id: int):
             (d, category, amount, note, user_id),
         )
 
-def fetch_entries(where_sql: str = "", params: list = None):
+def fetch_entries(where_sql: str = "", params: list | None = None):
     params = params or []
     with get_conn() as conn:
         rows = conn.execute(
-            f"SELECT id, date, category, amount, note FROM entries WHERE user_id = ?{(' AND ' + where_sql[7:]) if where_sql.startswith(' WHERE') else ''} ORDER BY id DESC",
+            f"""
+            SELECT id, date, category, amount, note
+            FROM entries
+            WHERE user_id = ?{(' AND ' + where_sql[7:]) if where_sql.startswith(' WHERE') else ''}
+            ORDER BY id DESC
+            """,
             [current_user.id] + params,
         ).fetchall()
         return [dict(r) for r in rows]
@@ -131,13 +182,16 @@ def update_entry(entry_id: int, d: str, category: str, amount: float, note: str)
 
 def delete_entry(entry_id: int):
     with get_conn() as conn:
-        conn.execute("DELETE FROM entries WHERE id = ? AND user_id = ?", (entry_id, current_user.id))
+        conn.execute(
+            "DELETE FROM entries WHERE id = ? AND user_id = ?",
+            (entry_id, current_user.id)
+        )
 
 def clear_all():
     with get_conn() as conn:
         conn.execute("DELETE FROM entries WHERE user_id = ?", (current_user.id,))
 
-def compute_totals(where_sql: str = "", params: list = None):
+def compute_totals(where_sql: str = "", params: list | None = None):
     params = params or []
     with get_conn() as conn:
         row = conn.execute(
@@ -155,7 +209,9 @@ def compute_totals(where_sql: str = "", params: list = None):
         balance = income + expense
         return income, expense, balance
 
-# ---------- Filter-Bau (plus später in SQL mit user_id kombiniert) ----------
+# =========================
+# Filter-Helfer
+# =========================
 def build_filter_from_args(args):
     category = (args.get("category") or "").strip()
     q = (args.get("q") or "").strip()
@@ -163,21 +219,15 @@ def build_filter_from_args(args):
     date_to = (args.get("date_to") or "").strip()
     etype = (args.get("type") or "").strip()  # "", "income", "expense"
 
-    where = []
-    params = []
-
+    where, params = [], []
     if category:
-        where.append("category = ?")
-        params.append(category)
+        where.append("category = ?"); params.append(category)
     if q:
-        where.append("note LIKE ?")
-        params.append(f"%{q}%")
+        where.append("note LIKE ?"); params.append(f"%{q}%")
     if date_from:
-        where.append("date >= ?")
-        params.append(date_from)
+        where.append("date >= ?"); params.append(date_from)
     if date_to:
-        where.append("date <= ?")
-        params.append(date_to)
+        where.append("date <= ?"); params.append(date_to)
     if etype == "income":
         where.append("amount > 0")
     elif etype == "expense":
@@ -185,34 +235,39 @@ def build_filter_from_args(args):
 
     where_sql = f" WHERE {' AND '.join(where)}" if where else ""
     return where_sql, params, {
-        "category": category,
-        "q": q,
-        "date_from": date_from,
-        "date_to": date_to,
-        "type": etype,
+        "category": category, "q": q, "date_from": date_from, "date_to": date_to, "type": etype
     }
 
-# ---------- Betrag & Format ----------
+# =========================
+# Format & Betrag
+# =========================
 def parse_de_amount(text: str) -> float:
     t = (text or "").strip().replace(" ", "")
     if not t:
         raise ValueError("leer")
     sign = 1
-    if t[0] == "+": t = t[1:]
-    elif t[0] == "-": sign = -1; t = t[1:]
+    if t and t[0] == "+":
+        t = t[1:]
+    elif t and t[0] == "-":
+        sign = -1
+        t = t[1:]
     t = t.replace(".", "").replace(",", ".")
     return sign * float(t)
 
 @app.template_filter("euro")
 def format_euro(value) -> str:
-    try: v = float(value)
-    except Exception: return str(value)
+    try:
+        v = float(value)
+    except Exception:
+        return str(value)
     sign = "-" if v < 0 else ""
     v = abs(v)
     s = f"{v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     return f"{sign}{s}"
 
-# ---------- Public Routes: Register/Login/Logout ----------
+# =========================
+# Public: Register/Login/Logout
+# =========================
 @app.get("/register")
 def register():
     init_db()
@@ -227,18 +282,27 @@ def register_post():
     confirm = request.form.get("confirm") or ""
 
     errors = []
-    if not name: errors.append("Bitte Namen angeben.")
-    if not email: errors.append("Bitte E-Mail angeben.")
-    if not password or len(password) < 8: errors.append("Passwort muss mind. 8 Zeichen haben.")
-    if password != confirm: errors.append("Passwörter stimmen nicht überein.")
-    if get_user_by_email(email): errors.append("E-Mail ist bereits registriert.")
+    if not name:
+        errors.append("Bitte Namen angeben.")
+    if not email:
+        errors.append("Bitte E-Mail angeben.")
+    if not password or len(password) < 8:
+        errors.append("Passwort muss mind. 8 Zeichen haben.")
+    if password != confirm:
+        errors.append("Passwörter stimmen nicht überein.")
+    if get_user_by_email(email):
+        errors.append("E-Mail ist bereits registriert.")
 
     if errors:
-        for e in errors: flash(e, "error")
+        for e in errors:
+            flash(e, "error")
         return redirect(url_for("register"))
 
     create_user(name, email, password)
     flash("Registrierung erfolgreich. Bitte melde dich an.", "success")
+
+    # Nach Registrierung: Admin-Flag ggf. setzen (falls ADMIN_EMAIL == email)
+    bootstrap_admin_if_configured()
     return redirect(url_for("login"))
 
 @app.get("/login")
@@ -257,7 +321,7 @@ def login_post():
         flash("E-Mail oder Passwort ist falsch.", "error")
         return redirect(url_for("login"))
 
-    login_user(DBUser(u["id"], u["email"], u["name"]))
+    login_user(DBUser(u["id"], u["email"], u["name"], u.get("is_admin", 0)))
     flash(f"Willkommen, {u['name']}!", "success")
     return redirect(url_for("home"))
 
@@ -268,7 +332,24 @@ def logout():
     flash("Abgemeldet.", "success")
     return redirect(url_for("login"))
 
-# ---------- App Routes (geschützt) ----------
+# =========================
+# Admin: Benutzerübersicht
+# =========================
+@app.get("/admin/users")
+@login_required
+def admin_users():
+    if not getattr(current_user, "is_admin", False):
+        flash("Keine Berechtigung, um diese Seite zu sehen.", "error")
+        return redirect(url_for("home"))
+    with get_conn() as conn:
+        users = conn.execute(
+            "SELECT id, name, email, is_admin, created_at FROM users ORDER BY id"
+        ).fetchall()
+    return render_template("admin_users.html", users=users)
+
+# =========================
+# App-Routen (geschützt)
+# =========================
 @app.get("/")
 @login_required
 def home():
@@ -301,18 +382,23 @@ def add_entry_route():
     entry_type = request.form.get("type")
 
     errors = []
-    if not d: errors.append("Bitte ein Datum angeben.")
-    if not cat: errors.append("Bitte eine Kategorie wählen.")
+    if not d:
+        errors.append("Bitte ein Datum angeben.")
+    if not cat:
+        errors.append("Bitte eine Kategorie wählen.")
     try:
         amount = parse_de_amount(amt_raw)
     except ValueError:
         errors.append("Betrag muss eine Zahl sein (deutsches Format, z. B. 2.100 oder 12,34).")
         amount = None
-    if amount is not None and amount <= 0: errors.append("Betrag muss größer als 0 sein.")
-    if not entry_type: errors.append("Bitte Einnahme oder Ausgabe auswählen.")
+    if amount is not None and amount <= 0:
+        errors.append("Betrag muss größer als 0 sein.")
+    if not entry_type:
+        errors.append("Bitte Einnahme oder Ausgabe auswählen.")
 
     if errors:
-        for e in errors: flash(e, "error")
+        for e in errors:
+            flash(e, "error")
         return redirect(url_for("home"))
 
     amount = -abs(amount) if entry_type == "expense" else abs(amount)
@@ -356,18 +442,23 @@ def save_edit_entry(entry_id: int):
     entry_type = request.form.get("type")
 
     errors = []
-    if not d: errors.append("Bitte ein Datum angeben.")
-    if not cat: errors.append("Bitte eine Kategorie wählen.")
+    if not d:
+        errors.append("Bitte ein Datum angeben.")
+    if not cat:
+        errors.append("Bitte eine Kategorie wählen.")
     try:
         amount = parse_de_amount(amt_raw)
     except ValueError:
         errors.append("Betrag muss eine Zahl sein (deutsches Format).")
         amount = None
-    if amount is not None and amount <= 0: errors.append("Betrag muss größer als 0 sein.")
-    if not entry_type: errors.append("Bitte Einnahme oder Ausgabe auswählen.")
+    if amount is not None and amount <= 0:
+        errors.append("Betrag muss größer als 0 sein.")
+    if not entry_type:
+        errors.append("Bitte Einnahme oder Ausgabe auswählen.")
 
     if errors:
-        for e in errors: flash(e, "error")
+        for e in errors:
+            flash(e, "error")
         return redirect(url_for("edit_entry", entry_id=entry_id))
 
     amount = -abs(amount) if entry_type == "expense" else abs(amount)
@@ -394,8 +485,9 @@ def clear_entries():
     flash("Alle Einträge gelöscht (nur dein Account).", "success")
     return redirect(url_for("home"))
 
-# ---------- Main ----------
+# =========================
+# Main
+# =========================
 if __name__ == "__main__":
     init_db()
-    print(app.url_map)
     app.run(debug=True)
