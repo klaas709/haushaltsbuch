@@ -14,7 +14,7 @@
   <section class="card">
     <h2>Admin · Benutzerübersicht</h2>
     <p class="muted" style="margin:6px 0 12px;">
-      Hier siehst du alle registrierten Benutzer. (Nur sichtbar für Admins)
+      Registrierte Benutzer. Du kannst Admin-Rechte vergeben oder entziehen.
     </p>
 
     <div class="table-wrapper">
@@ -26,6 +26,7 @@
             <th>E-Mail</th>
             <th>Admin</th>
             <th>Erstellt</th>
+            <th>Aktion</th>
           </tr>
         </thead>
         <tbody>
@@ -36,11 +37,26 @@
               <td>{{ u.email }}</td>
               <td>{{ "✅" if u.is_admin else "❌" }}</td>
               <td>{{ u.created_at }}</td>
+              <td class="actions">
+                {% if not u.is_admin %}
+                  <form action="{{ url_for('admin_promote', user_id=u.id) }}" method="post" style="display:inline;">
+                    <button class="btn btn-small" type="submit">Zum Admin machen</button>
+                  </form>
+                {% else %}
+                  <form action="{{ url_for('admin_demote', user_id=u.id) }}" method="post" style="display:inline;" onsubmit="return confirm('Admin-Rechte wirklich entziehen?');">
+                    <button class="btn btn-small btn-ghost" type="submit">Admin entziehen</button>
+                  </form>
+                {% endif %}
+              </td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
+
+    <p class="muted" style="margin-top:8px;">
+      JSON-Ansicht (nur Admin): <code>/admin/users.json</code>
+    </p>
   </section>
 
 {% endblock %}

@@ -1,4 +1,4 @@
-from flask import Flask, render_template, url_for, request, redirect, flash
+from flask import Flask, render_template, url_for, request, redirect, flash, jsonify
 from datetime import date
 from pathlib import Path
 import sqlite3
@@ -333,7 +333,7 @@ def logout():
     return redirect(url_for("login"))
 
 # =========================
-# Admin: Benutzerübersicht
+# Admin: Benutzerübersicht & Verwaltung
 # =========================
 @app.get("/admin/users")
 @login_required
@@ -346,6 +346,42 @@ def admin_users():
             "SELECT id, name, email, is_admin, created_at FROM users ORDER BY id"
         ).fetchall()
     return render_template("admin_users.html", users=users)
+
+@app.get("/admin/users.json")
+@login_required
+def admin_users_json():
+    if not getattr(current_user, "is_admin", False):
+        return jsonify({"error": "forbidden"}), 403
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT id, name, email, is_admin, created_at FROM users ORDER BY id"
+        ).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.post("/admin/users/<int:user_id>/promote")
+@login_required
+def admin_promote(user_id: int):
+    if not getattr(current_user, "is_admin", False):
+        flash("Keine Berechtigung.", "error")
+        return redirect(url_for("home"))
+    with get_conn() as conn:
+        conn.execute("UPDATE users SET is_admin = 1 WHERE id = ?", (user_id,))
+    flash("Benutzer ist jetzt Admin.", "success")
+    return redirect(url_for("admin_users"))
+
+@app.post("/admin/users/<int:user_id>/demote")
+@login_required
+def admin_demote(user_id: int):
+    if not getattr(current_user, "is_admin", False):
+        flash("Keine Berechtigung.", "error")
+        return redirect(url_for("home"))
+    if str(user_id) == str(current_user.id):
+        flash("Du kannst dir selbst die Admin-Rechte nicht entziehen.", "error")
+        return redirect(url_for("admin_users"))
+    with get_conn() as conn:
+        conn.execute("UPDATE users SET is_admin = 0 WHERE id = ?", (user_id,))
+    flash("Admin-Rechte entzogen.", "success")
+    return redirect(url_for("admin_users"))
 
 # =========================
 # App-Routen (geschützt)
