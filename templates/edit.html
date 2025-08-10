@@ -1,57 +1,57 @@
 {% extends "base.html" %}
 {% block content %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="flash-list">
-        {% for cat, msg in messages %}
-          <div class="flash {{ cat }}">{{ msg }}</div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-list">
+      {% for cat, msg in messages %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<section class="card">
+  <h2>✏ Eintrag bearbeiten</h2>
+
+  <form class="form-grid" action="{{ url_for('save_edit_entry', entry_id=entry.id) }}" method="post" novalidate>
+    <label>
+      <span>Datum</span>
+      <input type="date" name="date" value="{{ entry.date }}" required>
+    </label>
+
+    <label>
+      <span>Kategorie</span>
+      <select name="category" required>
+        {% for c in categories %}
+          <option value="{{ c }}" {% if entry.category == c %}selected{% endif %}>{{ c }}</option>
         {% endfor %}
+      </select>
+    </label>
+
+    <label class="full">
+      <span>Art</span>
+      <div class="type-toggle">
+        <label><input type="radio" name="type" value="income" {% if entry_type == 'income' %}checked{% endif %}> Einnahme</label>
+        <label><input type="radio" name="type" value="expense" {% if entry_type == 'expense' %}checked{% endif %}> Ausgabe</label>
       </div>
-    {% endif %}
-  {% endwith %}
+    </label>
 
-  <section class="card">
-    <h2>Eintrag bearbeiten</h2>
+    <label>
+      <span>Betrag (€)</span>
+      <input type="text" name="amount" value="{{ abs_amount|euro }}" placeholder="z. B. 2.100 oder 12,34" inputmode="decimal" required>
+    </label>
 
-    <form class="form-grid" action="{{ url_for('save_edit_entry', entry_id=entry.id) }}" method="post" novalidate>
-      <label>
-        <span>Datum</span>
-        <input type="date" name="date" value="{{ entry.date }}" required>
-      </label>
+    <label class="full">
+      <span>Notiz (optional)</span>
+      <input type="text" name="note" value="{{ entry.note }}">
+    </label>
 
-      <label>
-        <span>Kategorie</span>
-        <select name="category" required>
-          {% for c in categories %}
-            <option value="{{ c }}" {% if entry.category == c %}selected{% endif %}>{{ c }}</option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <label class="full">
-        <span>Art</span>
-        <div class="type-toggle">
-          <label><input type="radio" name="type" value="income" {% if entry_type == 'income' %}checked{% endif %}> Einnahme</label>
-          <label><input type="radio" name="type" value="expense" {% if entry_type == 'expense' %}checked{% endif %}> Ausgabe</label>
-        </div>
-      </label>
-
-      <label>
-        <span>Betrag (€)</span>
-        <input type="text" name="amount" value="{{ abs_amount|euro }}" placeholder="z. B. 2.100 oder 12,34" inputmode="decimal" required>
-      </label>
-
-      <label class="full">
-        <span>Notiz (optional)</span>
-        <input type="text" name="note" value="{{ entry.note }}">
-      </label>
-
-      <div class="actions">
-        <button class="btn" type="submit">Speichern</button>
-        <a class="btn btn-ghost" href="{{ url_for('home') }}">Abbrechen</a>
-      </div>
-    </form>
-  </section>
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">Speichern</button>
+      <a class="btn btn-ghost" href="{{ url_for('home') }}">Abbrechen</a>
+    </div>
+  </form>
+</section>
 
 {% endblock %}

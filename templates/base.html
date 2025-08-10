@@ -6,14 +6,14 @@
 
   <title>{{ title if title else "Haushaltsbuch" }}</title>
 
-  <!-- Styles (Cache-Busting über ?v=13) -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=13">
+  <!-- Styles (Cache-Busting) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=14">
 
   <!-- PWA: Manifest & Theme -->
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-  <meta name="theme-color" content="#0066cc">
+  <meta name="theme-color" content="#0ea5e9">
 
-  <!-- PWA: Icons -->
+  <!-- Icons / Favicon -->
   <link rel="icon" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
   <link rel="icon" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512.png') }}">
   <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
@@ -26,8 +26,14 @@
       <!-- Mobile: Hamburger -->
       <button class="nav-toggle" aria-label="Menü öffnen" id="menuBtn">☰</button>
 
-      <!-- Brand -->
-      <div class="brand">{{ app_name or "Haushaltsbuch" }}</div>
+      <!-- Brand mit Logo -->
+      <a href="{{ url_for('home') }}" class="brand-wrap">
+        <img class="brand-logo" src="{{ url_for('static', filename='icons/icon-192.png') }}" alt="" />
+        <div class="brand">
+          {{ app_name or "Haushaltsbuch" }}
+          <span class="brand-sub">Light</span>
+        </div>
+      </a>
 
       <!-- Desktop-Navigation -->
       <nav class="nav desktop-only">
@@ -50,7 +56,7 @@
   <!-- Mobile Drawer -->
   <aside class="drawer" id="drawer">
     <div class="drawer-header">
-      <div class="brand">{{ app_name or "Haushaltsbuch" }}</div>
+      <div class="brand">Haushaltsbuch</div>
       <button class="nav-toggle" aria-label="Menü schließen" id="closeBtn">✕</button>
     </div>
     <nav class="drawer-nav">
@@ -76,7 +82,7 @@
 
   <footer class="site-footer">
     <div class="container">
-      <small>v1.3 • Lernprojekt</small>
+      <small>v1.4 • Lernprojekt</small>
     </div>
   </footer>
 

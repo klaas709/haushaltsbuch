@@ -12,13 +12,13 @@
 {% endwith %}
 
 <section class="hero">
-  <h1>Dein {{ app_name }} 👋</h1>
-  <p>Einnahmen/Ausgaben per Umschalter wählen. Betrag bitte positiv eingeben (z. B. <code>2.100</code> oder <code>12,34</code>); das Vorzeichen wird automatisch gesetzt.</p>
+  <h1>Übersicht & Erfassung</h1>
+  <p class="muted">Beträge im deutschen Format: <code>2.100</code> oder <code>12,34</code> — Vorzeichen wird über <em>Einnahme/Ausgabe</em> gesetzt.</p>
 </section>
 
 <!-- Neuer Eintrag -->
 <section class="card">
-  <h2>Neuer Eintrag</h2>
+  <h2>➕ Neuer Eintrag</h2>
   <form class="form-grid" action="{{ url_for('add_entry_route') }}" method="post" novalidate>
     <label>
       <span>Datum</span>
@@ -47,14 +47,14 @@
       <input type="text" name="note" placeholder="z. B. Wocheneinkauf">
     </label>
     <div class="actions">
-      <button class="btn" type="submit">Speichern</button>
+      <button class="btn btn-primary" type="submit">Speichern</button>
     </div>
   </form>
 </section>
 
 <!-- Filter -->
 <section class="card">
-  <h2>Filter</h2>
+  <h2>🔎 Filter</h2>
   <form class="filters" action="{{ url_for('home') }}" method="get">
     <label>
       <span>Kategorie</span>
@@ -94,10 +94,10 @@
 
 <!-- Übersicht -->
 <section class="card">
-  <h2>Übersicht</h2>
+  <h2>📊 Übersicht</h2>
   <div class="summary">
-    <div><strong>Einnahmen:</strong> {{ total_income|euro }} €</div>
-    <div><strong>Ausgaben:</strong> {{ total_expense|euro }} €</div>
+    <div><strong>Einnahmen:</strong> <span class="pos">{{ total_income|euro }} €</span></div>
+    <div><strong>Ausgaben:</strong> <span class="neg">{{ total_expense|euro }} €</span></div>
     <div><strong>Saldo:</strong> {{ balance|euro }} €</div>
   </div>
 
@@ -117,7 +117,9 @@
           {% for e in entries %}
             <tr>
               <td>{{ e.date }}</td>
-              <td>{{ e.category }}</td>
+              <td>
+                <span class="badge badge-cat">{{ e.category }}</span>
+              </td>
               <td class="right {{ 'neg' if e.amount < 0 else 'pos' }}">{{ e.amount|euro }} €</td>
               <td>{{ e.note }}</td>
               <td class="actions">
@@ -132,14 +134,20 @@
       </table>
     </div>
   {% else %}
-    <p class="muted">Keine Einträge für die aktuelle Filterauswahl.</p>
+    <div class="empty">
+      <div class="empty-illustration">📭</div>
+      <p class="muted">Keine Einträge für die aktuelle Filterauswahl. Lege oben einen neuen Eintrag an.</p>
+    </div>
   {% endif %}
 </section>
 
-<!-- Danger Box: UNTER der Übersicht -->
+<!-- Alle Einträge löschen -->
 <section class="card danger">
   <h2>Alle Einträge löschen</h2>
-  <p class="muted">Hier kannst du <strong>alle</strong> deine Einträge unwiderruflich löschen. Zur Bestätigung gib bitte dein Passwort ein.</p>
+  <p class="muted">
+    Hier kannst du <strong>alle</strong> deine Einträge unwiderruflich löschen.
+    Zur Bestätigung gib bitte dein Passwort ein.
+  </p>
   <form action="{{ url_for('clear_entries') }}" method="post" class="form-inline" novalidate>
     <input type="password" name="password" placeholder="Passwort" required>
     <button class="btn btn-danger" type="submit"
