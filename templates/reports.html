@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="card">
+  <h2>📈 Berichte</h2>
+  <p class="muted">Monatsübersicht je Kategorie, plus Summe Einnahmen/Ausgaben/Saldo.</p>
+</section>
+
+{% if totals %}
+  {% for ym, sums in totals.items() %}
+    <section class="card">
+      <h2>🗓 {{ ym }}</h2>
+      <div class="summary">
+        <div><strong>Einnahmen:</strong> <span class="pos">{{ sums.income|euro }} €</span></div>
+        <div><strong>Ausgaben:</strong> <span class="neg">{{ sums.expense|euro }} €</span></div>
+        <div><strong>Saldo:</strong> {{ sums.balance|euro }} €</div>
+      </div>
+
+      {% set cats = monthly.get(ym) %}
+      {% if cats %}
+        <div class="table-wrapper" style="margin-top:10px;">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Kategorie</th>
+                <th class="right">Summe</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for cat, val in cats.items() %}
+                <tr>
+                  <td><span class="badge">{{ cat }}</span></td>
+                  <td class="right {{ 'neg' if val < 0 else 'pos' }}">{{ val|euro }} €</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="muted">Keine Einträge in diesem Monat.</p>
+      {% endif %}
+    </section>
+  {% endfor %}
+{% else %}
+  <section class="card">
+    <p class="muted">Noch keine Daten für Berichte vorhanden.</p>
+  </section>
+{% endif %}
+
+{% endblock %}

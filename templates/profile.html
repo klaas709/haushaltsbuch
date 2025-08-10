@@ -13,7 +13,7 @@
 
 <section class="card">
   <h2>Profil</h2>
-  <p class="muted">Passe deine Kontodaten an. Änderungen werden mit deinem aktuellen Passwort bestätigt.</p>
+  <p class="muted">Passe deine Kontodaten und Budgets an. Änderungen werden mit deinem aktuellen Passwort bestätigt.</p>
 
   <form class="form-grid" action="{{ url_for('profile_post') }}" method="post" novalidate>
     <h3 class="full">Account</h3>
@@ -44,6 +44,14 @@
       </div>
     </details>
 
+    <h3 class="full" style="margin-top:8px;">Budgets pro Kategorie (Monat)</h3>
+    {% for c in categories %}
+      <label>
+        <span>{{ c }} (Euro/Monat)</span>
+        <input type="text" name="budget_{{ c }}" value="{{ (budgets.get(c) if budgets else '')|default('', true)|euro if budgets and budgets.get(c) else '' }}" placeholder="z. B. 250,00">
+      </label>
+    {% endfor %}
+
     <label class="full" style="margin-top:8px;">
       <span>Aktuelles Passwort (zur Bestätigung)</span>
       <input type="password" name="current_password" required>
@@ -53,6 +61,83 @@
       <button class="btn" type="submit">Änderungen speichern</button>
     </div>
   </form>
+</section>
+
+<section class="card">
+  <h2>⟳ Wiederkehrende Einträge</h2>
+  <p class="muted">Automatische Buchungen in regelmäßigen Intervallen (z. B. Miete monatlich).</p>
+
+  <form class="form-grid" action="{{ url_for('recurring_add') }}" method="post" novalidate>
+    <label>
+      <span>Startdatum</span>
+      <input type="date" name="r_start" required>
+    </label>
+    <label>
+      <span>Intervall</span>
+      <div class="form-inline">
+        <input type="number" name="r_value" min="1" value="1" style="width:100px">
+        <select name="r_unit" required>
+          <option value="month" selected>Monat(e)</option>
+          <option value="week">Woche(n)</option>
+          <option value="day">Tag(e)</option>
+        </select>
+      </div>
+    </label>
+    <label>
+      <span>Kategorie</span>
+      <select name="r_category" required>
+        {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Betrag (mit Vorzeichen)</span>
+      <input type="text" name="r_amount" placeholder="-950,00 für Miete / +300,00 für Einkommen" required>
+    </label>
+    <label class="full">
+      <span>Notiz</span>
+      <input type="text" name="r_note" placeholder="optional">
+    </label>
+    <div class="actions">
+      <button class="btn btn-primary" type="submit">Hinzufügen</button>
+    </div>
+  </form>
+
+  {% if recurring and recurring|length > 0 %}
+    <div class="table-wrapper" style="margin-top:12px;">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Start</th>
+            <th>Intervall</th>
+            <th>Kategorie</th>
+            <th class="right">Betrag</th>
+            <th>Notiz</th>
+            <th>Zuletzt erzeugt</th>
+            <th>Aktion</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in recurring %}
+            <tr>
+              <td>{{ r.start_date }}</td>
+              <td>{{ r.interval_value }} {{ 'Monat(e)' if r.interval_unit=='month' else 'Woche(n)' if r.interval_unit=='week' else 'Tag(e)' }}</td>
+              <td><span class="badge">{{ r.category }}</span></td>
+              <td class="right {{ 'neg' if r.amount < 0 else 'pos' }}">{{ r.amount|euro }} €</td>
+              <td>{{ r.note }}</td>
+              <td>{{ r.last_applied or '–' }}</td>
+              <td class="actions">
+                <form action="{{ url_for('recurring_delete', r_id=r.id) }}" method="post" onsubmit="return confirm('Wiederkehrenden Eintrag löschen?');">
+                  <button class="btn btn-small btn-ghost" type="submit">🗑 Löschen</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted" style="margin-top:8px;">Noch keine wiederkehrenden Einträge.</p>
+  {% endif %}
 </section>
 
 {% endblock %}

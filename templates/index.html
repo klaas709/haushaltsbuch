@@ -157,4 +157,59 @@
   </form>
 </section>
 
+<!-- FAB Quick Add (v1.7) -->
+<button class="fab" id="fabAdd" aria-label="Schnell hinzufügen">＋</button>
+<div class="modal" id="quickModal" aria-hidden="true">
+  <div class="modal-dialog">
+    <h3>Schnell hinzufügen</h3>
+    <form action="{{ url_for('add_entry_route') }}" method="post" novalidate>
+      <input type="hidden" name="date" value="{{ today }}">
+      <input type="hidden" name="type" value="expense" id="qm_type">
+      <div class="form-grid">
+        <label>
+          <span>Kategorie</span>
+          <select name="category" required>
+            {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>
+          <span>Betrag (€)</span>
+          <input type="text" name="amount" placeholder="z. B. 12,34" inputmode="decimal" required>
+        </label>
+        <label class="full">
+          <span>Notiz</span>
+          <input type="text" name="note" placeholder="optional">
+        </label>
+      </div>
+      <div class="actions" style="margin-top:8px;">
+        <button class="btn btn-primary" type="submit">Speichern</button>
+        <button class="btn btn-ghost" type="button" id="qmCancel">Abbrechen</button>
+        <label class="chip" title="Als Einnahme markieren" style="margin-left:auto;">
+          <input type="checkbox" id="qmIncome">
+          <span>Einnahme</span>
+        </label>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  // Quick Add modal
+  const fab = document.getElementById('fabAdd');
+  const modal = document.getElementById('quickModal');
+  const cancel = document.getElementById('qmCancel');
+  const chkIncome = document.getElementById('qmIncome');
+  const typeField = document.getElementById('qm_type');
+
+  const openM = () => { modal.setAttribute('aria-hidden','false'); };
+  const closeM = () => { modal.setAttribute('aria-hidden','true'); chkIncome.checked=false; typeField.value='expense'; };
+
+  fab && fab.addEventListener('click', openM);
+  cancel && cancel.addEventListener('click', closeM);
+  modal && modal.addEventListener('click', (e) => { if(e.target === modal) closeM(); });
+  chkIncome && chkIncome.addEventListener('change', () => {
+    typeField.value = chkIncome.checked ? 'income' : 'expense';
+  });
+</script>
+
 {% endblock %}
