@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+  <section class="hero">
+    <h1>Willkommen in deinem {{ app_name }} 👋</h1>
+    <p>Hier wird bald dein erstes Einnahmen-/Ausgaben-Tracking entstehen.</p>
+    <div class="actions">
+      <a class="btn" href="#">Ersten Eintrag anlegen (bald)</a>
+      <a class="btn btn-ghost" href="#">Einträge ansehen (bald)</a>
+    </div>
+  </section>
+
+  <section class="grid two">
+    <article class="card">
+      <h2>Warum Templates?</h2>
+      <p><strong>base.html</strong> definiert das Grundlayout. Einzelne Seiten wie <strong>index.html</strong> füllen nur den Inhalts-Block. So bleibt der Code übersichtlich.</p>
+    </article>
+    <article class="card">
+      <h2>Nächste Schritte</h2>
+      <ul>
+        <li>v0.3: HTML-Formular für Einträge</li>
+        <li>v0.4: Einträge im Speicher (vorerst In-Memory)</li>
+        <li>v0.5: SQLite-Datenbank</li>
+      </ul>
+    </article>
+  </section>
+{% endblock %}
