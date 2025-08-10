@@ -21,7 +21,9 @@ CATEGORIES = ["Lebensmittel", "Miete", "Transport", "Freizeit", "Haushalt", "Ein
 # ---------- Login-Manager ----------
 login_manager = LoginManager()
 login_manager.login_view = "login"  # unautorisierte Zugriffe leiten zur Login-Seite
+login_manager.login_message = "Bitte melde dich an, um diese Seite zu sehen."
 login_manager.init_app(app)
+
 
 class DBUser(UserMixin):
     def __init__(self, id, email, name):
