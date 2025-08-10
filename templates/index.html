@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block content %}
 
-  <!-- Flash-Meldungen -->
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
       <div class="flash-list">
@@ -20,7 +19,6 @@
     </p>
   </section>
 
-  <!-- Formular: Neuer Eintrag -->
   <section class="card">
     <h2>Neuer Eintrag</h2>
     <form class="form-grid" action="{{ url_for('add_entry_route') }}" method="post" novalidate>
@@ -62,13 +60,11 @@
       </div>
     </form>
 
-    <!-- Separates Formular: Alle Einträge löschen -->
     <form action="{{ url_for('clear_entries') }}" method="post" style="margin-top:12px;">
       <button class="btn btn-ghost" type="submit">Alle Einträge löschen</button>
     </form>
   </section>
 
-  <!-- Filterleiste -->
   <section class="card">
     <h2>Filter</h2>
     <form class="filters" action="{{ url_for('home') }}" method="get">
@@ -123,7 +119,6 @@
     <p class="muted" style="margin-top:8px;">{{ result_count }} Ergebnis{{ '' if result_count == 1 else 'se' }} gefunden.</p>
   </section>
 
-  <!-- Übersicht -->
   <section class="card">
     <h2>Übersicht</h2>
     <div class="summary">

@@ -2,19 +2,23 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1"> 
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title if title else "Haushaltsbuch" }}</title>
-  <!-- Basis-Styles -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=06">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=08">
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
       <div class="brand">{{ app_name or "Haushaltsbuch" }}</div>
       <nav class="nav">
-        <a href="{{ url_for('home') }}" class="nav-link">Start</a>
-        <!-- Platzhalter für zukünftige Seiten -->
-        <!-- <a href="#" class="nav-link">Login</a> -->
+        {% if current_user.is_authenticated %}
+          <span class="nav-user">👤 {{ current_user.name }}</span>
+          <a href="{{ url_for('home') }}" class="nav-link">Start</a>
+          <a href="{{ url_for('logout') }}" class="nav-link">Abmelden</a>
+        {% else %}
+          <a href="{{ url_for('login') }}" class="nav-link">Anmelden</a>
+          <a href="{{ url_for('register') }}" class="nav-link">Registrieren</a>
+        {% endif %}
       </nav>
     </div>
   </header>
@@ -25,7 +29,7 @@
 
   <footer class="site-footer">
     <div class="container">
-      <small>v0.6 • Lernprojekt</small>
+      <small>v0.8 • Lernprojekt</small>
     </div>
   </footer>
 </body>

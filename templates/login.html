@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block content %}
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-list">
+        {% for cat, msg in messages %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  <section class="card">
+    <h2>Anmelden</h2>
+    <form class="form-grid" action="{{ url_for('login_post') }}" method="post" novalidate>
+      <label class="full">
+        <span>E-Mail</span>
+        <input type="email" name="email" placeholder="du@example.com" required>
+      </label>
+      <label class="full">
+        <span>Passwort</span>
+        <input type="password" name="password" placeholder="••••••••" required>
+      </label>
+      <div class="actions">
+        <button class="btn" type="submit">Login</button>
+        <a class="btn btn-ghost" href="{{ url_for('register') }}">Noch kein Konto?</a>
+      </div>
+    </form>
+  </section>
+
+{% endblock %}
