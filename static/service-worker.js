@@ -1,10 +1,12 @@
 self.addEventListener("install", event => {
   event.waitUntil(
-    caches.open("v1").then(cache => {
+    caches.open("v2").then(cache => {
       return cache.addAll([
         "/",
         "/static/styles.css",
-        "/static/manifest.json"
+        "/static/manifest.json",
+        "/static/icons/icon-192.png",
+        "/static/icons/icon-512.png"
       ]);
     })
   );

@@ -35,6 +35,9 @@
         </div>
       </a>
 
+      <!-- Theme toggle -->
+      <button class="theme-toggle" id="themeToggle" aria-label="Darstellung wechseln">🌓</button>
+
       <!-- Desktop-Navigation -->
       <nav class="nav desktop-only">
         {% if current_user.is_authenticated %}
@@ -82,7 +85,7 @@
 
   <footer class="site-footer">
     <div class="container">
-      <small>v1.5 • Lernprojekt</small>
+      <small>v1.6 • Lernprojekt von Jonas</small>
     </div>
   </footer>
 
@@ -107,6 +110,19 @@
     closeBtn && closeBtn.addEventListener('click', () => toggle(false));
     backdrop && backdrop.addEventListener('click', () => toggle(false));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggle(false); });
+  </script>
+
+  <script>
+  // Theme: load + toggle 
+    const root = document.documentElement;
+    const saved = localStorage.getItem("theme");
+    if (saved) root.setAttribute("data-theme", saved);
+    const btn = document.getElementById("themeToggle");
+    btn && btn.addEventListener("click", () => {
+      const next = root.getAttribute("data-theme") === "dark" ? "light" : "dark";
+      root.setAttribute("data-theme", next);
+      localStorage.setItem("theme", next);
+    });
   </script>
 </body>
 </html>
