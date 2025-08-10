@@ -14,7 +14,7 @@
 
   <section class="hero">
     <h1>Dein {{ app_name }} 👋</h1>
-    <p>Lege Einträge an. Einnahmen positiv, Ausgaben negativ (z. B. <code>-12.99</code>).</p>
+    <p>Einnahmen als positive Beträge, Ausgaben als positive Beträge eingeben – das Vorzeichen kommt vom Umschalter.</p>
   </section>
 
   <!-- Formular: Neuer Eintrag -->
@@ -36,17 +36,17 @@
         </select>
       </label>
 
-    <label class="full">
+      <label class="full">
         <span>Art</span>
         <div class="type-toggle">
-            <label><input type="radio" name="type" value="income"> Einnahme</label>
-            <label><input type="radio" name="type" value="expense"> Ausgabe</label>
+          <label><input type="radio" name="type" value="income"> Einnahme</label>
+          <label><input type="radio" name="type" value="expense"> Ausgabe</label>
         </div>
-    </label>
+      </label>
 
       <label>
         <span>Betrag (€)</span>
-        <input type="text" name="amount" placeholder="z. B. 25.50 oder -14,20" required>
+        <input type="text" name="amount" placeholder="z. B. 2.100 oder 12,34" inputmode="decimal" required>
       </label>
 
       <label class="full">
@@ -68,9 +68,9 @@
   <section class="card">
     <h2>Übersicht</h2>
     <div class="summary">
-      <div><strong>Einnahmen:</strong> {{ '%.2f'|format(total_income) }} €</div>
-      <div><strong>Ausgaben:</strong> {{ '%.2f'|format(total_expense) }} €</div>
-      <div><strong>Saldo:</strong> {{ '%.2f'|format(balance) }} €</div>
+      <div><strong>Einnahmen:</strong> {{ total_income|euro }} €</div>
+      <div><strong>Ausgaben:</strong> {{ total_expense|euro }} €</div>
+      <div><strong>Saldo:</strong> {{ balance|euro }} €</div>
     </div>
 
     {% if entries and entries|length > 0 %}
@@ -90,7 +90,7 @@
                 <td>{{ e.date }}</td>
                 <td>{{ e.category }}</td>
                 <td class="right {{ 'neg' if e.amount < 0 else 'pos' }}">
-                  {{ '%.2f'|format(e.amount) }} €
+                  {{ e.amount|euro }} €
                 </td>
                 <td>{{ e.note }}</td>
               </tr>
