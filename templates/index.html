@@ -14,13 +14,16 @@
 
   <section class="hero">
     <h1>Dein {{ app_name }} 👋</h1>
-    <p>Einnahmen als positive Beträge, Ausgaben als positive Beträge eingeben – das Vorzeichen kommt vom Umschalter.</p>
+    <p>
+      Einnahmen/Ausgaben per Umschalter wählen. Betrag bitte positiv eingeben
+      (z. B. <code>2.100</code> oder <code>12,34</code>); das Vorzeichen wird automatisch gesetzt.
+    </p>
   </section>
 
   <!-- Formular: Neuer Eintrag -->
   <section class="card">
     <h2>Neuer Eintrag</h2>
-    <form class="form-grid" action="{{ url_for('add_entry') }}" method="post" novalidate>
+    <form class="form-grid" action="{{ url_for('add_entry_route') }}" method="post" novalidate>
       <label>
         <span>Datum</span>
         <input type="date" name="date" value="{{ today }}" required>
@@ -65,6 +68,7 @@
     </form>
   </section>
 
+  <!-- Übersicht -->
   <section class="card">
     <h2>Übersicht</h2>
     <div class="summary">
@@ -82,10 +86,11 @@
               <th>Kategorie</th>
               <th class="right">Betrag</th>
               <th>Notiz</th>
+              <th>Aktionen</th>
             </tr>
           </thead>
           <tbody>
-            {% for e in entries|reverse %}
+            {% for e in entries %}
               <tr>
                 <td>{{ e.date }}</td>
                 <td>{{ e.category }}</td>
@@ -93,6 +98,12 @@
                   {{ e.amount|euro }} €
                 </td>
                 <td>{{ e.note }}</td>
+                <td class="actions">
+                  <a class="btn btn-small" href="{{ url_for('edit_entry', entry_id=e.id) }}">✏ Bearbeiten</a>
+                  <form action="{{ url_for('delete_entry_route', entry_id=e.id) }}" method="post" style="display:inline;" onsubmit="return confirm('Diesen Eintrag wirklich löschen?');">
+                    <button class="btn btn-small btn-ghost" type="submit">🗑 Löschen</button>
+                  </form>
+                </td>
               </tr>
             {% endfor %}
           </tbody>
