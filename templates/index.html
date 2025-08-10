@@ -68,6 +68,61 @@
     </form>
   </section>
 
+  <!-- Filterleiste -->
+  <section class="card">
+    <h2>Filter</h2>
+    <form class="filters" action="{{ url_for('home') }}" method="get">
+      <label>
+        <span>Kategorie</span>
+        <select name="category">
+          <option value="">Alle</option>
+          {% for c in categories %}
+            <option value="{{ c }}" {% if filters.category == c %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>
+        <span>Art</span>
+        <div class="chip-toggle">
+          <label class="chip">
+            <input type="radio" name="type" value="" {% if not filters.type %}checked{% endif %}>
+            <span>Alle</span>
+          </label>
+          <label class="chip">
+            <input type="radio" name="type" value="income" {% if filters.type == 'income' %}checked{% endif %}>
+            <span>Einnahmen</span>
+          </label>
+          <label class="chip">
+            <input type="radio" name="type" value="expense" {% if filters.type == 'expense' %}checked{% endif %}>
+            <span>Ausgaben</span>
+          </label>
+        </div>
+      </label>
+
+      <label>
+        <span>Datum von</span>
+        <input type="date" name="date_from" value="{{ filters.date_from }}">
+      </label>
+
+      <label>
+        <span>Datum bis</span>
+        <input type="date" name="date_to" value="{{ filters.date_to }}">
+      </label>
+
+      <label class="full">
+        <span>Textsuche (Notiz enthält)</span>
+        <input type="text" name="q" placeholder="z. B. 'Supermarkt' oder 'Miete'" value="{{ filters.q }}">
+      </label>
+
+      <div class="actions">
+        <button class="btn" type="submit">Filtern</button>
+        <a class="btn btn-ghost" href="{{ url_for('home') }}">Zurücksetzen</a>
+      </div>
+    </form>
+    <p class="muted" style="margin-top:8px;">{{ result_count }} Ergebnis{{ '' if result_count == 1 else 'se' }} gefunden.</p>
+  </section>
+
   <!-- Übersicht -->
   <section class="card">
     <h2>Übersicht</h2>
@@ -110,7 +165,7 @@
         </table>
       </div>
     {% else %}
-      <p class="muted">Noch keine Einträge vorhanden.</p>
+      <p class="muted">Keine Einträge für die aktuelle Filterauswahl.</p>
     {% endif %}
   </section>
 
