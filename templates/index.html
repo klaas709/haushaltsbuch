@@ -1,26 +1,98 @@
 {% extends "base.html" %}
 {% block content %}
+
+  <!-- Flash-Meldungen -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="flash-list">
+        {% for cat, msg in messages %}
+          <div class="flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
   <section class="hero">
-    <h1>Willkommen in deinem {{ app_name }} 👋</h1>
-    <p>Hier wird bald dein erstes Einnahmen-/Ausgaben-Tracking entstehen.</p>
-    <div class="actions">
-      <a class="btn" href="#">Ersten Eintrag anlegen (bald)</a>
-      <a class="btn btn-ghost" href="#">Einträge ansehen (bald)</a>
-    </div>
+    <h1>Dein {{ app_name }} 👋</h1>
+    <p>Lege Einträge an. Einnahmen positiv, Ausgaben negativ (z. B. <code>-12.99</code>).</p>
   </section>
 
-  <section class="grid two">
-    <article class="card">
-      <h2>Warum Templates?</h2>
-      <p><strong>base.html</strong> definiert das Grundlayout. Einzelne Seiten wie <strong>index.html</strong> füllen nur den Inhalts-Block. So bleibt der Code übersichtlich.</p>
-    </article>
-    <article class="card">
-      <h2>Nächste Schritte</h2>
-      <ul>
-        <li>v0.3: HTML-Formular für Einträge</li>
-        <li>v0.4: Einträge im Speicher (vorerst In-Memory)</li>
-        <li>v0.5: SQLite-Datenbank</li>
-      </ul>
-    </article>
+  <!-- Formular: Neuer Eintrag -->
+  <section class="card">
+    <h2>Neuer Eintrag</h2>
+    <form class="form-grid" action="{{ url_for('add_entry') }}" method="post" novalidate>
+      <label>
+        <span>Datum</span>
+        <input type="date" name="date" value="{{ today }}" required>
+      </label>
+
+      <label>
+        <span>Kategorie</span>
+        <select name="category" required>
+          <option value="" disabled selected>Bitte wählen…</option>
+          {% for c in categories %}
+            <option value="{{ c }}">{{ c }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label>
+        <span>Betrag (€)</span>
+        <input type="text" name="amount" placeholder="z. B. 25.50 oder -14,20" required>
+      </label>
+
+      <label class="full">
+        <span>Notiz (optional)</span>
+        <input type="text" name="note" placeholder="z. B. Wocheneinkauf">
+      </label>
+
+      <div class="actions">
+        <button class="btn" type="submit">Speichern</button>
+      </div>
+    </form>
+
+    <!-- Separates Formular: Alle Einträge löschen -->
+    <form action="{{ url_for('clear_entries') }}" method="post" style="margin-top:12px;">
+      <button class="btn btn-ghost" type="submit">Alle Einträge löschen</button>
+    </form>
   </section>
+
+  <section class="card">
+    <h2>Übersicht</h2>
+    <div class="summary">
+      <div><strong>Einnahmen:</strong> {{ '%.2f'|format(total_income) }} €</div>
+      <div><strong>Ausgaben:</strong> {{ '%.2f'|format(total_expense) }} €</div>
+      <div><strong>Saldo:</strong> {{ '%.2f'|format(balance) }} €</div>
+    </div>
+
+    {% if entries and entries|length > 0 %}
+      <div class="table-wrapper">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Datum</th>
+              <th>Kategorie</th>
+              <th class="right">Betrag</th>
+              <th>Notiz</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in entries|reverse %}
+              <tr>
+                <td>{{ e.date }}</td>
+                <td>{{ e.category }}</td>
+                <td class="right {{ 'neg' if e.amount < 0 else 'pos' }}">
+                  {{ '%.2f'|format(e.amount) }} €
+                </td>
+                <td>{{ e.note }}</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="muted">Noch keine Einträge vorhanden.</p>
+    {% endif %}
+  </section>
+
 {% endblock %}
