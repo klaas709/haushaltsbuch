@@ -1,187 +1,152 @@
 {% extends "base.html" %}
 {% block content %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="flash-list">
-        {% for cat, msg in messages %}
-          <div class="flash {{ cat }}">{{ msg }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
-
-  <section class="hero">
-    <h1>Dein {{ app_name }} 👋</h1>
-    <p>
-      Einnahmen/Ausgaben per Umschalter wählen. Betrag bitte positiv eingeben
-      (z. B. <code>2.100</code> oder <code>12,34</code>); das Vorzeichen wird automatisch gesetzt.
-    </p>
-  </section>
-
-  <!-- Formular: Neuer Eintrag -->
-  <section class="card">
-    <h2>Neuer Eintrag</h2>
-    <form class="form-grid" action="{{ url_for('add_entry_route') }}" method="post" novalidate>
-      <label>
-        <span>Datum</span>
-        <input type="date" name="date" value="{{ today }}" required>
-      </label>
-
-      <label>
-        <span>Kategorie</span>
-        <select name="category" required>
-          <option value="" disabled selected>Bitte wählen…</option>
-          {% for c in categories %}
-            <option value="{{ c }}">{{ c }}</option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <label class="full">
-        <span>Art</span>
-        <div class="type-toggle">
-          <label><input type="radio" name="type" value="income"> Einnahme</label>
-          <label><input type="radio" name="type" value="expense"> Ausgabe</label>
-        </div>
-      </label>
-
-      <label>
-        <span>Betrag (€)</span>
-        <input type="text" name="amount" placeholder="z. B. 2.100 oder 12,34" inputmode="decimal" required>
-      </label>
-
-      <label class="full">
-        <span>Notiz (optional)</span>
-        <input type="text" name="note" placeholder="z. B. Wocheneinkauf">
-      </label>
-
-      <div class="actions">
-        <button class="btn" type="submit">Speichern</button>
-      </div>
-    </form>
-
-    <!-- Separates Formular: Alle Einträge löschen (mit Passwort-Bestätigung) -->
-    <form action="{{ url_for('clear_entries') }}" method="post" style="margin-top:12px;">
-      <div class="form-grid">
-        <label class="full">
-          <span>Zur Bestätigung bitte dein Passwort eingeben</span>
-          <input type="password" name="password" placeholder="Passwort" required>
-        </label>
-      </div>
-      <div class="actions">
-        <button class="btn btn-ghost" type="submit"
-                onclick="return confirm('Wirklich ALLE Einträge löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.');">
-          Alle Einträge löschen
-        </button>
-      </div>
-    </form>
-  </section>
-
-  <!-- Filter -->
-  <section class="card">
-    <h2>Filter</h2>
-    <form class="filters" action="{{ url_for('home') }}" method="get">
-      <label>
-        <span>Kategorie</span>
-        <select name="category">
-          <option value="">Alle</option>
-          {% for c in categories %}
-            <option value="{{ c }}" {% if filters.category == c %}selected{% endif %}>{{ c }}</option>
-          {% endfor %}
-        </select>
-      </label>
-
-      <label>
-        <span>Art</span>
-        <div class="chip-toggle">
-          <label class="chip">
-            <input type="radio" name="type" value="" {% if not filters.type %}checked{% endif %}>
-            <span>Alle</span>
-          </label>
-          <label class="chip">
-            <input type="radio" name="type" value="income" {% if filters.type == 'income' %}checked{% endif %}>
-            <span>Einnahmen</span>
-          </label>
-          <label class="chip">
-            <input type="radio" name="type" value="expense" {% if filters.type == 'expense' %}checked{% endif %}>
-            <span>Ausgaben</span>
-          </label>
-        </div>
-      </label>
-
-      <label>
-        <span>Datum von</span>
-        <input type="date" name="date_from" value="{{ filters.date_from }}">
-      </label>
-
-      <label>
-        <span>Datum bis</span>
-        <input type="date" name="date_to" value="{{ filters.date_to }}">
-      </label>
-
-      <label class="full">
-        <span>Textsuche (Notiz enthält)</span>
-        <input type="text" name="q" placeholder="z. B. 'Supermarkt' oder 'Miete'" value="{{ filters.q }}">
-      </label>
-
-      <div class="actions">
-        <button class="btn" type="submit">Filtern</button>
-        <a class="btn btn-ghost" href="{{ url_for('home') }}">Zurücksetzen</a>
-
-        <!-- CSV-Export übernimmt aktuelle Filter via query_str -->
-        <a class="btn" href="{{ url_for('export_csv') }}{% if query_str %}?{{ query_str }}{% endif %}">
-          CSV exportieren
-        </a>
-      </div>
-    </form>
-    <p class="muted" style="margin-top:8px;">{{ result_count }} Ergebnis{{ '' if result_count == 1 else 'se' }} gefunden.</p>
-  </section>
-
-  <!-- Übersicht -->
-  <section class="card">
-    <h2>Übersicht</h2>
-    <div class="summary">
-      <div><strong>Einnahmen:</strong> {{ total_income|euro }} €</div>
-      <div><strong>Ausgaben:</strong> {{ total_expense|euro }} €</div>
-      <div><strong>Saldo:</strong> {{ balance|euro }} €</div>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-list">
+      {% for cat, msg in messages %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+      {% endfor %}
     </div>
+  {% endif %}
+{% endwith %}
 
-    {% if entries and entries|length > 0 %}
-      <div class="table-wrapper">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>Datum</th>
-              <th>Kategorie</th>
-              <th class="right">Betrag</th>
-              <th>Notiz</th>
-              <th>Aktionen</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for e in entries %}
-              <tr>
-                <td>{{ e.date }}</td>
-                <td>{{ e.category }}</td>
-                <td class="right {{ 'neg' if e.amount < 0 else 'pos' }}">
-                  {{ e.amount|euro }} €
-                </td>
-                <td>{{ e.note }}</td>
-                <td class="actions">
-                  <a class="btn btn-small" href="{{ url_for('edit_entry', entry_id=e.id) }}">✏ Bearbeiten</a>
-                  <form action="{{ url_for('delete_entry_route', entry_id=e.id) }}" method="post" style="display:inline;" onsubmit="return confirm('Diesen Eintrag wirklich löschen?');">
-                    <button class="btn btn-small btn-ghost" type="submit">🗑 Löschen</button>
-                  </form>
-                </td>
-              </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+<section class="hero">
+  <h1>Dein {{ app_name }} 👋</h1>
+  <p>Einnahmen/Ausgaben per Umschalter wählen. Betrag bitte positiv eingeben (z. B. <code>2.100</code> oder <code>12,34</code>); das Vorzeichen wird automatisch gesetzt.</p>
+</section>
+
+<!-- Neuer Eintrag -->
+<section class="card">
+  <h2>Neuer Eintrag</h2>
+  <form class="form-grid" action="{{ url_for('add_entry_route') }}" method="post" novalidate>
+    <label>
+      <span>Datum</span>
+      <input type="date" name="date" value="{{ today }}" required>
+    </label>
+    <label>
+      <span>Kategorie</span>
+      <select name="category" required>
+        <option value="" disabled selected>Bitte wählen…</option>
+        {% for c in categories %}<option value="{{ c }}">{{ c }}</option>{% endfor %}
+      </select>
+    </label>
+    <label class="full">
+      <span>Art</span>
+      <div class="type-toggle">
+        <label><input type="radio" name="type" value="income"> Einnahme</label>
+        <label><input type="radio" name="type" value="expense"> Ausgabe</label>
       </div>
-    {% else %}
-      <p class="muted">Keine Einträge für die aktuelle Filterauswahl.</p>
-    {% endif %}
-  </section>
+    </label>
+    <label>
+      <span>Betrag (€)</span>
+      <input type="text" name="amount" placeholder="z. B. 2.100 oder 12,34" inputmode="decimal" required>
+    </label>
+    <label class="full">
+      <span>Notiz (optional)</span>
+      <input type="text" name="note" placeholder="z. B. Wocheneinkauf">
+    </label>
+    <div class="actions">
+      <button class="btn" type="submit">Speichern</button>
+    </div>
+  </form>
+</section>
+
+<!-- Filter -->
+<section class="card">
+  <h2>Filter</h2>
+  <form class="filters" action="{{ url_for('home') }}" method="get">
+    <label>
+      <span>Kategorie</span>
+      <select name="category">
+        <option value="">Alle</option>
+        {% for c in categories %}<option value="{{ c }}" {% if filters.category == c %}selected{% endif %}>{{ c }}</option>{% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Art</span>
+      <div class="chip-toggle">
+        <label class="chip"><input type="radio" name="type" value="" {% if not filters.type %}checked{% endif %}><span>Alle</span></label>
+        <label class="chip"><input type="radio" name="type" value="income" {% if filters.type == 'income' %}checked{% endif %}><span>Einnahmen</span></label>
+        <label class="chip"><input type="radio" name="type" value="expense" {% if filters.type == 'expense' %}checked{% endif %}><span>Ausgaben</span></label>
+      </div>
+    </label>
+    <label>
+      <span>Datum von</span>
+      <input type="date" name="date_from" value="{{ filters.date_from }}">
+    </label>
+    <label>
+      <span>Datum bis</span>
+      <input type="date" name="date_to" value="{{ filters.date_to }}">
+    </label>
+    <label class="full">
+      <span>Textsuche (Notiz enthält)</span>
+      <input type="text" name="q" placeholder="z. B. 'Supermarkt' oder 'Miete'" value="{{ filters.q }}">
+    </label>
+    <div class="actions">
+      <button class="btn" type="submit">Filtern</button>
+      <a class="btn btn-ghost" href="{{ url_for('home') }}">Zurücksetzen</a>
+      <a class="btn" href="{{ url_for('export_csv') }}{% if query_str %}?{{ query_str }}{% endif %}">CSV exportieren</a>
+    </div>
+  </form>
+  <p class="muted" style="margin-top:8px;">{{ result_count }} Ergebnis{{ '' if result_count == 1 else 'se' }} gefunden.</p>
+</section>
+
+<!-- Übersicht -->
+<section class="card">
+  <h2>Übersicht</h2>
+  <div class="summary">
+    <div><strong>Einnahmen:</strong> {{ total_income|euro }} €</div>
+    <div><strong>Ausgaben:</strong> {{ total_expense|euro }} €</div>
+    <div><strong>Saldo:</strong> {{ balance|euro }} €</div>
+  </div>
+
+  {% if entries and entries|length > 0 %}
+    <div class="table-wrapper">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Kategorie</th>
+            <th class="right">Betrag</th>
+            <th>Notiz</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for e in entries %}
+            <tr>
+              <td>{{ e.date }}</td>
+              <td>{{ e.category }}</td>
+              <td class="right {{ 'neg' if e.amount < 0 else 'pos' }}">{{ e.amount|euro }} €</td>
+              <td>{{ e.note }}</td>
+              <td class="actions">
+                <a class="btn btn-small" href="{{ url_for('edit_entry', entry_id=e.id) }}">✏ Bearbeiten</a>
+                <form action="{{ url_for('delete_entry_route', entry_id=e.id) }}" method="post" style="display:inline;" onsubmit="return confirm('Diesen Eintrag wirklich löschen?');">
+                  <button class="btn btn-small btn-ghost" type="submit">🗑 Löschen</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="muted">Keine Einträge für die aktuelle Filterauswahl.</p>
+  {% endif %}
+</section>
+
+<!-- Danger Box: UNTER der Übersicht -->
+<section class="card danger">
+  <h2>Gefahrzone</h2>
+  <p class="muted">Hier kannst du <strong>alle</strong> deine Einträge unwiderruflich löschen. Zur Bestätigung gib bitte dein Passwort ein.</p>
+  <form action="{{ url_for('clear_entries') }}" method="post" class="form-inline" novalidate>
+    <input type="password" name="password" placeholder="Passwort" required>
+    <button class="btn btn-danger" type="submit"
+            onclick="return confirm('Wirklich ALLE Einträge löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.');">
+      Alle Einträge löschen
+    </button>
+  </form>
+</section>
 
 {% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-list">
+      {% for cat, msg in messages %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+{% endwith %}
+
+<section class="card">
+  <h2>Profil</h2>
+  <p class="muted">Passe deine Kontodaten an. Änderungen werden mit deinem aktuellen Passwort bestätigt.</p>
+
+  <form class="form-grid" action="{{ url_for('profile_post') }}" method="post" novalidate>
+    <h3 class="full">Account</h3>
+
+    <label>
+      <span>Name</span>
+      <input type="text" name="name" value="{{ user.name }}" required>
+    </label>
+
+    <label>
+      <span>E-Mail</span>
+      <input type="email" name="email" value="{{ user.email }}" required>
+    </label>
+
+    <div class="full"></div>
+
+    <details class="full">
+      <summary><strong>Passwort ändern (optional)</strong></summary>
+      <div class="form-grid" style="margin-top:10px;">
+        <label>
+          <span>Neues Passwort</span>
+          <input type="password" name="new_password" minlength="8">
+        </label>
+        <label>
+          <span>Bestätigung</span>
+          <input type="password" name="confirm" minlength="8">
+        </label>
+      </div>
+    </details>
+
+    <label class="full" style="margin-top:8px;">
+      <span>Aktuelles Passwort (zur Bestätigung)</span>
+      <input type="password" name="current_password" required>
+    </label>
+
+    <div class="actions">
+      <button class="btn" type="submit">Änderungen speichern</button>
+    </div>
+  </form>
+</section>
+
+{% endblock %}
