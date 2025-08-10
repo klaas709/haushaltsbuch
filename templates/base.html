@@ -1,18 +1,39 @@
 <!doctype html>
-<html lang="de">
+<html lang="de" data-menu-open="false">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+
   <title>{{ title if title else "Haushaltsbuch" }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=10">
+
+  <!-- Styles (Cache-Busting über ?v=13) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=13">
+
+  <!-- PWA: Manifest & Theme -->
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
+  <meta name="theme-color" content="#0066cc">
+
+  <!-- PWA: Icons -->
+  <link rel="icon" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+  <link rel="icon" sizes="512x512" href="{{ url_for('static', filename='icons/icon-512.png') }}">
+  <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192.png') }}">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
 </head>
 <body>
   <header class="site-header">
     <div class="container header-inner">
+      <!-- Mobile: Hamburger -->
+      <button class="nav-toggle" aria-label="Menü öffnen" id="menuBtn">☰</button>
+
+      <!-- Brand -->
       <div class="brand">{{ app_name or "Haushaltsbuch" }}</div>
-      <nav class="nav">
+
+      <!-- Desktop-Navigation -->
+      <nav class="nav desktop-only">
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('home') }}" class="nav-link">Start</a>
+          <a href="{{ url_for('profile') }}" class="nav-link">Profil</a>
           {% if current_user.is_admin %}
             <a href="{{ url_for('admin_users') }}" class="nav-link">Admin</a>
           {% endif %}
@@ -26,14 +47,60 @@
     </div>
   </header>
 
+  <!-- Mobile Drawer -->
+  <aside class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div class="brand">{{ app_name or "Haushaltsbuch" }}</div>
+      <button class="nav-toggle" aria-label="Menü schließen" id="closeBtn">✕</button>
+    </div>
+    <nav class="drawer-nav">
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('home') }}" class="drawer-link">Start</a>
+        <a href="{{ url_for('profile') }}" class="drawer-link">Profil</a>
+        {% if current_user.is_admin %}
+          <a href="{{ url_for('admin_users') }}" class="drawer-link">Admin</a>
+        {% endif %}
+        <span class="drawer-user">👤 {{ current_user.name }}</span>
+        <a href="{{ url_for('logout') }}" class="drawer-link">Abmelden</a>
+      {% else %}
+        <a href="{{ url_for('login') }}" class="drawer-link">Anmelden</a>
+        <a href="{{ url_for('register') }}" class="drawer-link">Registrieren</a>
+      {% endif %}
+    </nav>
+  </aside>
+  <div class="backdrop" id="backdrop"></div>
+
   <main class="container">
     {% block content %}{% endblock %}
   </main>
 
   <footer class="site-footer">
     <div class="container">
-      <small>v1.0 • Lernprojekt</small>
+      <small>v1.3 • Lernprojekt</small>
     </div>
   </footer>
+
+  <!-- PWA: Service Worker Registration -->
+  <script>
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("{{ url_for('static', filename='service-worker.js') }}")
+        .then(() => console.log("Service Worker registered"))
+        .catch(err => console.warn("Service Worker registration failed:", err));
+    }
+  </script>
+
+  <!-- Mobile Drawer Controls -->
+  <script>
+    const html = document.documentElement;
+    const menuBtn = document.getElementById('menuBtn');
+    const closeBtn = document.getElementById('closeBtn');
+    const backdrop = document.getElementById('backdrop');
+    const toggle = (open) => html.setAttribute('data-menu-open', open ? 'true' : 'false');
+
+    menuBtn && menuBtn.addEventListener('click', () => toggle(true));
+    closeBtn && closeBtn.addEventListener('click', () => toggle(false));
+    backdrop && backdrop.addEventListener('click', () => toggle(false));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggle(false); });
+  </script>
 </body>
 </html>
