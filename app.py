@@ -582,6 +582,20 @@ def clear_entries():
     return redirect(url_for("home"))
 
 # =========================
+# Fehlerseiten
+# =========================
+@app.errorhandler(404)
+def handle_404(err):
+    # Tipp: Wenn FLASK_DEBUG=1 aktiv ist, zeigt Flask seine eigene 404-Seite.
+    return render_template("404.html", app_name="Haushaltsbuch"), 404
+
+@app.errorhandler(500)
+def handle_500(err):
+    # Logge die Exception in die Server-Konsole:
+    app.logger.exception("Unhandled exception: %s", err)
+    return render_template("500.html", app_name="Haushaltsbuch"), 500
+
+# =========================
 # Main
 # =========================
 if __name__ == "__main__":

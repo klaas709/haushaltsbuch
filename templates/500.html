@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="card" style="text-align:center;">
+  <h2>Unerwarteter Fehler (500)</h2>
+  <p class="muted" style="margin:8px 0 16px;">
+    Ups, da ist etwas schiefgelaufen. Bitte versuche es später erneut.
+  </p>
+  <a class="btn" href="{{ url_for('home') }}">Zur Startseite</a>
+</section>
+
+{% endblock %}

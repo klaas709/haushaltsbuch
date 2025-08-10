@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ title if title else "Haushaltsbuch" }}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=08">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=10">
 </head>
 <body>
   <header class="site-header">
@@ -12,15 +12,15 @@
       <div class="brand">{{ app_name or "Haushaltsbuch" }}</div>
       <nav class="nav">
         {% if current_user.is_authenticated %}
-          <span class="nav-user">👤 {{ current_user.name }}</span>
           <a href="{{ url_for('home') }}" class="nav-link">Start</a>
           {% if current_user.is_admin %}
-           <a href="{{ url_for('admin_users') }}" class="nav-link">Admin</a>
+            <a href="{{ url_for('admin_users') }}" class="nav-link">Admin</a>
           {% endif %}
+          <span class="nav-user">👤 {{ current_user.name }}</span>
           <a href="{{ url_for('logout') }}" class="nav-link">Abmelden</a>
         {% else %}
-         <a href="{{ url_for('login') }}" class="nav-link">Anmelden</a>
-         <a href="{{ url_for('register') }}" class="nav-link">Registrieren</a>
+          <a href="{{ url_for('login') }}" class="nav-link">Anmelden</a>
+          <a href="{{ url_for('register') }}" class="nav-link">Registrieren</a>
         {% endif %}
       </nav>
     </div>
@@ -32,7 +32,7 @@
 
   <footer class="site-footer">
     <div class="container">
-      <small>v0.8 • Lernprojekt von Jonas</small>
+      <small>v1.0 • Lernprojekt</small>
     </div>
   </footer>
 </body>

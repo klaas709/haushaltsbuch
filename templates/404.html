@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block content %}
+
+<section class="card" style="text-align:center;">
+  <h2>Seite nicht gefunden (404)</h2>
+  <p class="muted" style="margin:8px 0 16px;">
+    Die angeforderte Seite existiert nicht oder wurde verschoben.
+  </p>
+  <a class="btn" href="{{ url_for('home') }}">Zur Startseite</a>
+</section>
+
+{% endblock %}
