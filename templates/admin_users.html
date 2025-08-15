@@ -1,62 +1,100 @@
 {% extends "base.html" %}
 {% block content %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% if messages %}
-      <div class="flash-list">
-        {% for cat, msg in messages %}
-          <div class="flash {{ cat }}">{{ msg }}</div>
-        {% endfor %}
-      </div>
-    {% endif %}
-  {% endwith %}
-
-  <section class="card">
-    <h2>Admin · Benutzerübersicht</h2>
-    <p class="muted" style="margin:6px 0 12px;">
-      Registrierte Benutzer. Du kannst Admin-Rechte vergeben oder entziehen.
-    </p>
-
-    <div class="table-wrapper">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>E-Mail</th>
-            <th>Admin</th>
-            <th>Erstellt</th>
-            <th>Aktion</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for u in users %}
-            <tr>
-              <td>{{ u.id }}</td>
-              <td>{{ u.name }}</td>
-              <td>{{ u.email }}</td>
-              <td>{{ "✅" if u.is_admin else "❌" }}</td>
-              <td>{{ u.created_at }}</td>
-              <td class="actions">
-                {% if not u.is_admin %}
-                  <form action="{{ url_for('admin_promote', user_id=u.id) }}" method="post" style="display:inline;">
-                    <button class="btn btn-small" type="submit">Zum Admin machen</button>
-                  </form>
-                {% else %}
-                  <form action="{{ url_for('admin_demote', user_id=u.id) }}" method="post" style="display:inline;" onsubmit="return confirm('Admin-Rechte wirklich entziehen?');">
-                    <button class="btn btn-small btn-ghost" type="submit">Admin entziehen</button>
-                  </form>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+    <div class="flash-list">
+      {% for cat, msg in messages %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+      {% endfor %}
     </div>
+  {% endif %}
+{% endwith %}
 
-    <p class="muted" style="margin-top:8px;">
-      JSON-Ansicht (nur Admin): <code>/admin/users.json</code>
-    </p>
-  </section>
+<section class="card">
+  <h2>👑 Admin · Benutzerverwaltung</h2>
+  <p class="muted">Hier kannst du Benutzer sehen, Admin-Rechte vergeben/entziehen und Konten verknüpfen.</p>
+
+  <div class="table-wrapper" style="margin-top:10px;">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>ID</th><th>Name</th><th>E-Mail</th><th>Admin</th><th>Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td>{{ u.id }}</td>
+          <td>{{ u.name }}</td>
+          <td>{{ u.email }}</td>
+          <td>{{ 'Ja' if u.is_admin else 'Nein' }}</td>
+          <td class="actions">
+            {% if not u.is_admin %}
+              <form action="{{ url_for('admin_promote', user_id=u.id) }}" method="post" style="display:inline">
+                <button class="btn btn-small">Admin geben</button>
+              </form>
+            {% else %}
+              <form action="{{ url_for('admin_demote', user_id=u.id) }}" method="post" style="display:inline">
+                <button class="btn btn-small btn-ghost" onclick="return confirm('Admin-Rechte entziehen?')">Admin entziehen</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card">
+  <h2>🔗 Accounts verknüpfen</h2>
+  <p class="muted">Wähle zwei unterschiedliche Benutzer aus und klicke auf <em>Verbinden</em>. Zum Lösen der Verbindung wähle dieselben zwei Benutzer und klicke <em>Verbindung lösen</em>.</p>
+
+  <form class="form-grid" action="{{ url_for('admin_links_action') }}" method="post" style="margin-top:8px;">
+    <label>
+      <span>Benutzer A</span>
+      <select name="user_a" required>
+        <option value="">– wählen –</option>
+        {% for u in users %}
+          <option value="{{ u.id }}">#{{ u.id }} · {{ u.name }} ({{ u.email }})</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label>
+      <span>Benutzer B</span>
+      <select name="user_b" required>
+        <option value="">– wählen –</option>
+        {% for u in users %}
+          <option value="{{ u.id }}">#{{ u.id }} · {{ u.name }} ({{ u.email }})</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <div class="actions" style="align-self:end;">
+      <button class="btn btn-primary" name="action" value="link" type="submit">Verbinden</button>
+      <button class="btn btn-ghost" name="action" value="unlink" type="submit">Verbindung lösen</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>🔎 Aktuelle Verknüpfungen</h2>
+  {% if links and links|length > 0 %}
+    <div class="grid-2" style="gap:10px;">
+      {% for a,b in links %}
+        <form action="{{ url_for('admin_links_remove_single') }}" method="post" class="chip" style="display:flex;align-items:center;gap:8px;">
+          <input type="hidden" name="a" value="{{ a }}">
+          <input type="hidden" name="b" value="{{ b }}">
+          <span>Link: #{{ a }} ⇄ #{{ b }}</span>
+          <button class="btn btn-small btn-ghost" title="Verknüpfung entfernen">✕</button>
+        </form>
+      {% endfor %}
+    </div>
+  {% else %}
+    <p class="muted">Noch keine Verknüpfungen vorhanden.</p>
+  {% endif %}
+</section>
 
 {% endblock %}
