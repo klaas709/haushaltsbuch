@@ -1,4 +1,4 @@
-from flask import Flask, render_template, url_for, request, redirect, flash, jsonify, Response
+from flask import Flask, render_template, url_for, request, redirect, flash, jsonify, Response, abort
 from datetime import date, datetime
 from pathlib import Path
 import sqlite3
@@ -40,7 +40,6 @@ def get_conn():
 
 def init_db():
     with get_conn() as conn:
-        # users
         conn.execute("""CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             email TEXT UNIQUE NOT NULL,
@@ -52,44 +51,30 @@ def init_db():
         if "is_admin" not in cols_users:
             conn.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER DEFAULT 0")
 
-        # entries
         conn.execute("""CREATE TABLE IF NOT EXISTS entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT NOT NULL,
             category TEXT NOT NULL,
             amount REAL NOT NULL,
             note TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            user_id INTEGER REFERENCES users(id)
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
         )""")
         cols_entries = {r["name"] for r in conn.execute("PRAGMA table_info(entries)")}
         if "user_id" not in cols_entries:
             conn.execute("ALTER TABLE entries ADD COLUMN user_id INTEGER REFERENCES users(id)")
+
+        # NEW: user_links (symmetrische Verknüpfungen)
+        conn.execute("""CREATE TABLE IF NOT EXISTS user_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            linked_user_id INTEGER NOT NULL,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            created_by INTEGER,
+            UNIQUE(user_id, linked_user_id)
+        )""")
+
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_user ON entries(user_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_entries_date ON entries(date)")
-
-        # budgets (v1.7)
-        conn.execute("""CREATE TABLE IF NOT EXISTS budgets(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            category TEXT NOT NULL,
-            monthly_limit REAL NOT NULL,
-            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(user_id, category)
-        )""")
-
-        # recurring (v1.7)
-        conn.execute("""CREATE TABLE IF NOT EXISTS recurring(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            start_date TEXT NOT NULL,
-            interval_unit TEXT NOT NULL,   -- 'day' | 'week' | 'month'
-            interval_value INTEGER NOT NULL,
-            category TEXT NOT NULL,
-            amount REAL NOT NULL,
-            note TEXT,
-            last_applied TEXT  -- letzte erzeugte Buchungs-Datum
-        )""")
     bootstrap_admin_if_configured()
 
 def bootstrap_admin_if_configured():
@@ -114,6 +99,11 @@ def get_user_by_id(user_id):
         r = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
         return dict(r) if r else None
 
+def list_users():
+    with get_conn() as conn:
+        rows = conn.execute("SELECT id,name,email,is_admin,created_at FROM users ORDER BY id").fetchall()
+        return [dict(r) for r in rows]
+
 def update_user_profile(user_id: int, name: str, email: str):
     with get_conn() as conn:
         conn.execute("UPDATE users SET name = ?, email = ? WHERE id = ?", (name.strip(), email.lower().strip(), user_id))
@@ -121,6 +111,41 @@ def update_user_profile(user_id: int, name: str, email: str):
 def update_user_password(user_id: int, new_password: str):
     with get_conn() as conn:
         conn.execute("UPDATE users SET password_hash = ? WHERE id = ?", (generate_password_hash(new_password), user_id))
+
+# ----- Links (Accounts verknüpfen) -----
+def get_linked_user_ids(user_id:int):
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT linked_user_id AS uid FROM user_links WHERE user_id = ?
+            UNION
+            SELECT user_id AS uid FROM user_links WHERE linked_user_id = ?
+        """, (user_id, user_id)).fetchall()
+        return [int(r["uid"]) for r in rows]
+
+def list_all_links():
+    """Gibt eindeutige Paare (min_id, max_id) zurück, damit Links nicht doppelt erscheinen."""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT DISTINCT
+              CASE WHEN user_id < linked_user_id THEN user_id ELSE linked_user_id END AS a,
+              CASE WHEN user_id < linked_user_id THEN linked_user_id ELSE user_id END AS b
+            FROM user_links
+            ORDER BY a,b
+        """).fetchall()
+        return [(int(r["a"]), int(r["b"])) for r in rows]
+
+def link_users(a_id:int, b_id:int, created_by:int):
+    if a_id == b_id: return
+    if a_id > b_id: a_id, b_id = b_id, a_id
+    with get_conn() as conn:
+        conn.execute("INSERT OR IGNORE INTO user_links (user_id, linked_user_id, created_by) VALUES (?,?,?)", (a_id, b_id, created_by))
+        conn.execute("INSERT OR IGNORE INTO user_links (user_id, linked_user_id, created_by) VALUES (?,?,?)", (b_id, a_id, created_by))
+
+def unlink_users(a_id:int, b_id:int):
+    if a_id == b_id: return
+    with get_conn() as conn:
+        conn.execute("DELETE FROM user_links WHERE (user_id=? AND linked_user_id=?) OR (user_id=? AND linked_user_id=?)",
+                     (a_id, b_id, b_id, a_id))
 
 # ----- Entry queries -----
 def insert_entry(d, category, amount, note, user_id):
@@ -172,91 +197,6 @@ def compute_totals(where_sql: str = "", params: list | None = None):
         ).fetchone()
         income = float(r["income"]); expense = float(r["expense"]); balance = income + expense
         return income, expense, balance
-
-# ----- Budgets (v1.7) -----
-def get_budgets_for_user(user_id: int) -> dict:
-    with get_conn() as conn:
-        rows = conn.execute("SELECT category, monthly_limit FROM budgets WHERE user_id=?", (user_id,)).fetchall()
-        return {r["category"]: float(r["monthly_limit"]) for r in rows}
-
-def upsert_budget(user_id: int, category: str, monthly_limit: float | None):
-    with get_conn() as conn:
-        if monthly_limit is None:
-            conn.execute("DELETE FROM budgets WHERE user_id=? AND category=?", (user_id, category))
-        else:
-            conn.execute("""INSERT INTO budgets(user_id,category,monthly_limit)
-                            VALUES(?,?,?)
-                            ON CONFLICT(user_id,category) DO UPDATE SET monthly_limit=excluded.monthly_limit, updated_at=CURRENT_TIMESTAMP
-                        """, (user_id, category, monthly_limit))
-
-def month_key(dt: date) -> str:
-    return f"{dt.year:04d}-{dt.month:02d}"
-
-def compute_month_spend_by_category(user_id: int, year: int, month: int) -> dict:
-    ym = f"{year:04d}-{month:02d}"
-    with get_conn() as conn:
-        rows = conn.execute("""
-            SELECT category, COALESCE(SUM(amount),0) AS total
-            FROM entries
-            WHERE user_id=? AND substr(date,1,7)=?
-            GROUP BY category
-        """, (user_id, ym)).fetchall()
-    return {r["category"]: float(r["total"]) for r in rows}
-
-# ----- Recurring (v1.7) -----
-def add_recurring(user_id:int, start_date:str, interval_unit:str, interval_value:int, category:str, amount:float, note:str):
-    with get_conn() as conn:
-        conn.execute("""INSERT INTO recurring(user_id,start_date,interval_unit,interval_value,category,amount,note,last_applied)
-                        VALUES(?,?,?,?,?,?,?,NULL)""",
-                     (user_id, start_date, interval_unit, interval_value, category, amount, note))
-
-def delete_recurring(user_id:int, r_id:int):
-    with get_conn() as conn:
-        conn.execute("DELETE FROM recurring WHERE id=? AND user_id=?", (r_id, user_id))
-
-def get_recurring_list(user_id:int):
-    with get_conn() as conn:
-        rows = conn.execute("""SELECT id,start_date,interval_unit,interval_value,category,amount,note,last_applied
-                               FROM recurring WHERE user_id=? ORDER BY id DESC""", (user_id,)).fetchall()
-        return [dict(r) for r in rows]
-
-def _next_date(iso:str, unit:str, value:int) -> str:
-    from datetime import datetime
-    y,m,d = map(int, iso.split("-"))
-    if unit == "day":
-        from datetime import timedelta
-        return (datetime(y,m,d) + timedelta(days=value)).date().isoformat()
-    if unit == "week":
-        from datetime import timedelta
-        return (datetime(y,m,d) + timedelta(weeks=value)).date().isoformat()
-    # month
-    new_m = m + value
-    new_y = y + (new_m - 1)//12
-    new_m = (new_m - 1)%12 + 1
-    # clamp day
-    import calendar
-    last_day = calendar.monthrange(new_y, new_m)[1]
-    new_d = min(d, last_day)
-    return date(new_y, new_m, new_d).isoformat()
-
-def apply_due_recurring(user_id:int, today_iso:str):
-    today_s = today_iso
-    rec_list = get_recurring_list(user_id)
-    for r in rec_list:
-        start = r["start_date"]
-        last = r["last_applied"] or None
-        unit = r["interval_unit"]; val = int(r["interval_value"])
-        cur = start if last is None else _next_date(r["last_applied"], unit, val)
-        made_one = False
-        while cur <= today_s:
-            insert_entry(cur, r["category"], float(r["amount"]), r.get("note",""), user_id)
-            made_one = True
-            cur = _next_date(cur, unit, val)
-        if made_one:
-            with get_conn() as conn:
-                # set last_applied to the last created date (previous step)
-                prev = _next_date(cur, unit, -val)  # step back one interval
-                conn.execute("UPDATE recurring SET last_applied=? WHERE id=? AND user_id=?", (prev, r["id"], user_id))
 
 # ----- Filter & Format -----
 def build_filter_from_args(args):
@@ -351,17 +291,61 @@ def logout():
 def admin_users():
     if not getattr(current_user, "is_admin", False):
         flash("Keine Berechtigung, um diese Seite zu sehen.", "error"); return redirect(url_for("home"))
-    with get_conn() as conn:
-        users = conn.execute("SELECT id,name,email,is_admin,created_at FROM users ORDER BY id").fetchall()
-    return render_template("admin_users.html", users=users)
+    init_db()
+    users = list_users()
+    links = list_all_links()  # Liste von (a,b)
+    return render_template("admin_users.html", users=users, links=links, app_name="Haushaltsbuch")
+
+@app.post("/admin/links")
+@login_required
+def admin_links_action():
+    if not getattr(current_user, "is_admin", False):
+        abort(403)
+    action = (request.form.get("action") or "").strip()
+    try:
+        a = int(request.form.get("user_a") or "0")
+        b = int(request.form.get("user_b") or "0")
+    except ValueError:
+        a = b = 0
+    if not a or not b or a == b:
+        flash("Bitte zwei unterschiedliche Benutzer wählen.", "error")
+        return redirect(url_for("admin_users"))
+    try:
+        if action == "link":
+            link_users(a, b, int(current_user.id))
+            flash("Accounts wurden verknüpft.", "success")
+        elif action == "unlink":
+            unlink_users(a, b)
+            flash("Verknüpfung wurde gelöst.", "success")
+        else:
+            flash("Unbekannte Aktion.", "error")
+    except Exception as e:
+        flash(f"Fehler: {e}", "error")
+    return redirect(url_for("admin_users"))
+
+@app.post("/admin/links/remove")
+@login_required
+def admin_links_remove_single():
+    """Quick-Entkoppeln aus der Link-Liste (X-Button)."""
+    if not getattr(current_user, "is_admin", False):
+        abort(403)
+    try:
+        a = int(request.form.get("a") or "0")
+        b = int(request.form.get("b") or "0")
+    except ValueError:
+        a = b = 0
+    if a and b and a != b:
+        unlink_users(a, b)
+        flash("Verknüpfung entfernt.", "success")
+    else:
+        flash("Ungültige Auswahl.", "error")
+    return redirect(url_for("admin_users"))
 
 @app.get("/admin/users.json")
 @login_required
 def admin_users_json():
     if not getattr(current_user, "is_admin", False): return jsonify({"error":"forbidden"}), 403
-    with get_conn() as conn:
-        rows = conn.execute("SELECT id,name,email,is_admin,created_at FROM users ORDER BY id").fetchall()
-    return jsonify([dict(r) for r in rows])
+    return jsonify(list_users())
 
 @app.post("/admin/users/<int:user_id>/promote")
 @login_required
@@ -397,15 +381,13 @@ def export_csv():
     return Response(csv_data.encode("utf-8-sig"), mimetype="text/csv; charset=utf-8",
                     headers={"Content-Disposition": f'attachment; filename="{filename}"'})
 
-# ----- Profil (+ Budgets, Recurring) -----
+# ----- Profil -----
 @app.get("/profile")
 @login_required
 def profile():
     init_db()
     u = get_user_by_id(current_user.id)
-    budgets = get_budgets_for_user(int(current_user.id))
-    recurring = get_recurring_list(int(current_user.id))
-    return render_template("profile.html", user=u, budgets=budgets, recurring=recurring, categories=CATEGORIES, app_name="Haushaltsbuch")
+    return render_template("profile.html", user=u, app_name="Haushaltsbuch")
 
 @app.post("/profile")
 @login_required
@@ -416,15 +398,12 @@ def profile_post():
     if not u or not check_password_hash(u["password_hash"], current_pwd):
         flash("Aktuelles Passwort ist falsch.", "error"); return redirect(url_for("profile"))
 
-    # Account-Felder
     name = (request.form.get("name") or "").strip()
     email = (request.form.get("email") or "").strip().lower()
 
-    # Optional Passwortwechsel
     new_pwd = (request.form.get("new_password") or "").strip()
     confirm = (request.form.get("confirm") or "").strip()
 
-    # Validierungen
     if not name or not email:
         flash("Name und E-Mail dürfen nicht leer sein.", "error"); return redirect(url_for("profile"))
 
@@ -432,22 +411,7 @@ def profile_post():
     if other and str(other["id"]) != str(current_user.id):
         flash("Diese E-Mail wird bereits verwendet.", "error"); return redirect(url_for("profile"))
 
-    # Updates Account
     update_user_profile(int(current_user.id), name, email)
-
-    # Budgets aus Formular (budget_<category>)
-    for c in CATEGORIES:
-        raw = (request.form.get(f"budget_{c}") or "").strip()
-        if raw == "":
-            upsert_budget(int(current_user.id), c, None)
-        else:
-            try:
-                val = parse_de_amount(raw)
-                if val <= 0: upsert_budget(int(current_user.id), c, None)
-                else: upsert_budget(int(current_user.id), c, abs(val))
-            except Exception:
-                flash(f"Ungültiges Budget für {c}. Erwartet z. B. 2.100 oder 12,34", "error")
-                return redirect(url_for("profile"))
 
     if new_pwd or confirm:
         if len(new_pwd) < 8:
@@ -457,95 +421,24 @@ def profile_post():
         update_user_password(int(current_user.id), new_pwd)
         flash("Profil & Passwort aktualisiert.", "success")
     else:
-        flash("Profil & Budgets aktualisiert.", "success")
+        flash("Profil aktualisiert.", "success")
 
     return redirect(url_for("profile"))
-
-@app.post("/recurring/add")
-@login_required
-def recurring_add():
-    init_db()
-    try:
-        start = (request.form.get("r_start") or "").strip()
-        unit = (request.form.get("r_unit") or "").strip()
-        val = int(request.form.get("r_value") or "1")
-        cat = (request.form.get("r_category") or "").strip()
-        amt = parse_de_amount(request.form.get("r_amount") or "")
-        note = (request.form.get("r_note") or "").strip()
-        if not start or not unit or not cat or amt == 0:
-            raise ValueError("Felder unvollständig")
-        if unit not in ("day","week","month"):
-            raise ValueError("Intervall ungültig")
-        # negative für Ausgaben, positiv für Einnahmen => vom Typ hängt’s nicht ab, Nutzer gibt Vorzeichen per Radio nicht an
-        add_recurring(int(current_user.id), start, unit, val, cat, amt, note)
-        flash("Wiederkehrender Eintrag hinzugefügt.", "success")
-    except Exception as e:
-        flash(f"Wiederkehrender Eintrag fehlgeschlagen: {e}", "error")
-    return redirect(url_for("profile"))
-
-@app.post("/recurring/<int:r_id>/delete")
-@login_required
-def recurring_delete(r_id:int):
-    init_db()
-    delete_recurring(int(current_user.id), r_id)
-    flash("Wiederkehrender Eintrag gelöscht.", "success")
-    return redirect(url_for("profile"))
-
-# ----- Reports (v1.7) -----
-@app.get("/reports")
-@login_required
-def reports():
-    init_db()
-    with get_conn() as conn:
-        rows = conn.execute("""
-            SELECT substr(date,1,7) AS ym, category, SUM(amount) AS total
-            FROM entries
-            WHERE user_id=?
-            GROUP BY ym, category
-            ORDER BY ym DESC, category
-        """, (current_user.id,)).fetchall()
-        monthly = {}
-        for r in rows:
-            ym = r["ym"]; cat = r["category"]; val = float(r["total"])
-            monthly.setdefault(ym, {})[cat] = val
-
-        sums = conn.execute("""
-            SELECT substr(date,1,7) AS ym,
-                   COALESCE(SUM(CASE WHEN amount>0 THEN amount END),0) AS income,
-                   COALESCE(SUM(CASE WHEN amount<0 THEN amount END),0) AS expense
-            FROM entries
-            WHERE user_id=?
-            GROUP BY ym
-            ORDER BY ym DESC
-        """, (current_user.id,)).fetchall()
-        totals = {r["ym"]: {"income": float(r["income"]), "expense": float(r["expense"]), "balance": float(r["income"])+float(r["expense"])} for r in sums}
-
-    return render_template("reports.html", monthly=monthly, totals=totals, app_name="Haushaltsbuch")
 
 # ----- App (geschützt) -----
 @app.get("/")
 @login_required
 def home():
     init_db()
-    # v1.7: fällige wiederkehrende Einträge erzeugen
-    apply_due_recurring(int(current_user.id), date.today().isoformat())
-
     where_sql, params, filters = build_filter_from_args(request.args)
     entries = fetch_entries(where_sql, params)
     total_income, total_expense, balance = compute_totals(where_sql, params)
     query_str = request.query_string.decode("utf-8") if request.query_string else ""
-
-    # Budgets & Fortschritt aktuellem Monat
-    budgets = get_budgets_for_user(int(current_user.id))
-    today = date.today()
-    spent = compute_month_spend_by_category(int(current_user.id), today.year, today.month)
-
     return render_template("index.html",
         app_name="Haushaltsbuch", entries=entries, categories=CATEGORIES,
         today=date.today().isoformat(), total_income=total_income,
         total_expense=total_expense, balance=balance,
-        filters=filters, result_count=len(entries), user=current_user, query_str=query_str,
-        budgets=budgets, spent=spent)
+        filters=filters, result_count=len(entries), user=current_user, query_str=query_str)
 
 @app.post("/add")
 @login_required

@@ -1,0 +1,15 @@
+* [33m0e2b910[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;33mtag: [m[1;33mv1.7[m[33m)[m v1.7: Anpassung monatliche laufende Einträge und Berichte
+[31m|[m *   [33m0b38e37[m[33m ([m[1;31morigin/main[m[33m)[m Merge pull request #3 from klaas709/v1.6-ui-refresh
+[31m|[m [32m|[m[31m\[m  
+[31m|[m [32m|[m[31m/[m  
+[31m|[m[31m/[m[32m|[m   
+* [32m|[m [33me1b56e5[m[33m ([m[1;33mtag: [m[1;33mv1.6.1[m[33m, [m[1;33mtag: [m[1;33mv1.6[m[33m, [m[1;31morigin/v1.6-ui-refresh[m[33m, [m[1;32mv1.6-ui-refresh[m[33m)[m v1.6: Modernes UI (Typo/Buttons/Tabellen), Light/Dark-Toggle, SW cache-bust
+[32m|[m[32m/[m  
+* [33m04ede58[m[33m ([m[1;33mtag: [m[1;33mv1.5[m[33m)[m v1.5: Anpassung größeres Design und Test mit Codex
+[33m|[m * [33m39b6c83[m[33m ([m[1;31morigin/codex/find-access-to-all-repository-files[m[33m)[m style: enhance responsive design
+[33m|[m[33m/[m  
+* [33m239eadb[m[33m ([m[1;33mtag: [m[1;33mv1.4[m[33m)[m v1.4: UI-Refresh (Logo im Header, Buttons, Badges, Zebra/Hover, Empty-State) + Edit-Titel ohne ID
+* [33meaa2f82[m chore: add requirements for deploy
+* [33m8004c04[m v1.3: PWA-Basics + Bearbeiten-Überschrift ohne ID
+* [33mfabc9cd[m[33m ([m[1;33mtag: [m[1;33mv1.3[m[33m, [m[1;33mtag: [m[1;33mv1.1.1[m[33m)[m v1.1.1: Profil vereinfacht (ein Passwort-Feld), Danger-Box unter Übersicht platziert
+* [33m4e2f994[m[33m ([m[1;33mtag: [m[1;33mv1.0[m[33m)[m v1.0: Benutzerfreundliche 404/500-Fehlerseiten + Navbar verfeinert

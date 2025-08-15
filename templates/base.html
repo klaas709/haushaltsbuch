@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="de" data-menu-open="false">
+<html lang="de" data-menu-open="false" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,11 +7,11 @@
   <title>{{ title if title else "Haushaltsbuch" }}</title>
 
   <!-- Styles (Cache-Busting) -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=17">
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}?v=16">
 
   <!-- PWA: Manifest & Theme -->
   <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-  <meta name="theme-color" content="#0ea5e9">
+  <meta id="meta-theme-color" name="theme-color" content="#0b1220">
 
   <!-- Icons / Favicon -->
   <link rel="icon" sizes="192x192" href="{{ url_for('static', filename='icons/icon-192.png') }}">
@@ -35,14 +35,14 @@
         </div>
       </a>
 
-      <!-- Theme toggle -->
-      <button class="theme-toggle" id="themeToggle" aria-label="Darstellung wechseln">🌓</button>
+      <!-- Theme Toggle -->
+      <button id="theme-toggle" class="nav-toggle" title="Theme wechseln">🌓</button>
 
       <!-- Desktop-Navigation -->
       <nav class="nav desktop-only">
+        <button id="theme-toggle" aria-label="Theme umschalten">🌓</button>
         {% if current_user.is_authenticated %}
           <a href="{{ url_for('home') }}" class="nav-link">Start</a>
-          <a href="{{ url_for('reports') }}" class="nav-link">Berichte</a>
           <a href="{{ url_for('profile') }}" class="nav-link">Profil</a>
           {% if current_user.is_admin %}
             <a href="{{ url_for('admin_users') }}" class="nav-link">Admin</a>
@@ -66,7 +66,6 @@
     <nav class="drawer-nav">
       {% if current_user.is_authenticated %}
         <a href="{{ url_for('home') }}" class="drawer-link">Start</a>
-        <a href="{{ url_for('reports') }}" class="drawer-link">Berichte</a>
         <a href="{{ url_for('profile') }}" class="drawer-link">Profil</a>
         {% if current_user.is_admin %}
           <a href="{{ url_for('admin_users') }}" class="drawer-link">Admin</a>
@@ -87,7 +86,7 @@
 
   <footer class="site-footer">
     <div class="container">
-      <small>v1.7 • Lernprojekt von Jonas</small>
+      <small>v1.8 • Lernprojekt von Jonas</small>
     </div>
   </footer>
 
@@ -100,28 +99,40 @@
     }
   </script>
 
-  <!-- Mobile Drawer Controls + Theme -->
+  <!-- Theme Bootstrap & Toggle -->
+  <script>
+    (function initTheme() {
+      const saved = localStorage.getItem('theme');
+      const prefersLight = window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches;
+      const theme = saved || (prefersLight ? 'light' : 'dark');
+      document.documentElement.setAttribute('data-theme', theme);
+      const meta = document.getElementById('meta-theme-color');
+      if (meta) meta.setAttribute('content', theme === 'light' ? '#ffffff' : '#0b1220');
+    })();
+    document.addEventListener('click', (e) => {
+      if (e.target && (e.target.id === 'theme-toggle' || e.target.closest('#theme-toggle'))) {
+        const html = document.documentElement;
+        const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-theme', next);
+        localStorage.setItem('theme', next);
+        const meta = document.getElementById('meta-theme-color');
+        if (meta) meta.setAttribute('content', next === 'light' ? '#ffffff' : '#0b1220');
+      }
+    });
+  </script>
+
+  <!-- Mobile Drawer Controls -->
   <script>
     const html = document.documentElement;
     const menuBtn = document.getElementById('menuBtn');
     const closeBtn = document.getElementById('closeBtn');
     const backdrop = document.getElementById('backdrop');
-    const toggleDrawer = (open) => html.setAttribute('data-menu-open', open ? 'true' : 'false');
+    const toggle = (open) => html.setAttribute('data-menu-open', open ? 'true' : 'false');
 
-    menuBtn && menuBtn.addEventListener('click', () => toggleDrawer(true));
-    closeBtn && closeBtn.addEventListener('click', () => toggleDrawer(false));
-    backdrop && backdrop.addEventListener('click', () => toggleDrawer(false));
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggleDrawer(false); });
-
-    // Theme: load + toggle
-    const saved = localStorage.getItem("theme");
-    if (saved) html.setAttribute("data-theme", saved);
-    const themeBtn = document.getElementById("themeToggle");
-    themeBtn && themeBtn.addEventListener("click", () => {
-      const next = html.getAttribute("data-theme") === "dark" ? "light" : "dark";
-      html.setAttribute("data-theme", next);
-      localStorage.setItem("theme", next);
-    });
+    menuBtn && menuBtn.addEventListener('click', () => toggle(true));
+    closeBtn && closeBtn.addEventListener('click', () => toggle(false));
+    backdrop && backdrop.addEventListener('click', () => toggle(false));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') toggle(false); });
   </script>
 </body>
 </html>
